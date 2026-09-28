@@ -1,7 +1,7 @@
 // js/pacientes.js — Patients page (integrated with new DB structure)
 import { supabase } from './supabase.js';
 import { requireAuth, can } from './auth.js';
-import { initLayout, Icons, fmtDate, fmtCurrency, getInitials, avatarColor, toast, confirmAction, showLoader } from './layout.js';
+import { initLayout, Icons, fmtDate, fmtCurrency, getInitials, avatarColor, toast, confirmAction } from './layout.js';
 
 let currentUser = null;
 let patients = [];
@@ -81,9 +81,10 @@ function setupEvents() {
 
 // ---------- Load patients ----------
 async function loadPatients() {
-  showLoader(document.getElementById('patients-table-body'));
+  const tbody = document.getElementById('patients-table-body');
+  tbody.innerHTML = '<tr><td colspan="5"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>';
   const { data, error } = await supabase.from('patients').select('*').order('name');
-  if (error) { toast('Erro ao carregar pacientes', 'err'); console.error(error); return; }
+  if (error) { toast('Erro ao carregar pacientes: ' + error.message, 'err'); console.error(error); return; }
   patients = data || [];
   renderTable();
 }
@@ -218,29 +219,49 @@ async function openDetail(id) {
   selectedPatient = patients.find(x => x.id === id);
   if (!selectedPatient) return;
 
-  // Load appointment history
+  // Load appointment history (no joins - use lookup caches)
   try {
     const { data: history, error } = await supabase
       .from('appointments')
-      .select('*, professionals(name), procedures_catalog(name), insurances(name)')
+      .select('*')
       .eq('patient_id', id)
       .order('appointment_date', { ascending: false });
     if (error) console.warn('History load error:', error);
-    selectedHistory = history || [];
+    const raw = history || [];
+    // Enrich with lookup names
+    const profMap = {}; professionals.forEach(p => profMap[p.id] = p.name);
+    const procMap = {}; proceduresCatalog.forEach(p => procMap[p.id] = p.name);
+    const insMap = {}; insurancesList.forEach(p => insMap[p.id] = p.name);
+    selectedHistory = raw.map(h => ({
+      ...h,
+      professional_name: profMap[h.professional_id] || '—',
+      procedure_name: procMap[h.procedure_id] || '—',
+      insurance_name: insMap[h.insurance_id] || '—',
+    }));
   } catch(e) {
     console.warn('History query failed:', e);
     selectedHistory = [];
   }
 
-  // Load payment history
+  // Load payment history (no joins)
   try {
     const { data: payments, error } = await supabase
       .from('payments')
-      .select('*, appointments(appointment_date, procedure_id, procedures_catalog(name))')
+      .select('*')
       .eq('patient_id', id)
       .order('created_at', { ascending: false });
     if (error) console.warn('Payments load error:', error);
-    selectedPayments = payments || [];
+    // Enrich with procedure names from appointments
+    const payRaw = payments || [];
+    const procMap = {}; proceduresCatalog.forEach(p => procMap[p.id] = p.name);
+    selectedPayments = payRaw.map(p => {
+      const appt = selectedHistory.find(h => h.id === p.appointment_id);
+      return {
+        ...p,
+        procedure_name: appt ? procMap[appt.procedure_id] || '—' : '—',
+        appointment_date: appt?.appointment_date || '—',
+      };
+    });
   } catch(e) {
     console.warn('Payments query failed:', e);
     selectedPayments = [];
@@ -302,10 +323,10 @@ function renderDetailContent(tab) {
       content.innerHTML = `<div class="timeline">${selectedHistory.map(h => `
         <div class="tl-item">
           <div class="tl-date">${fmtDate(h.appointment_date)}${h.appointment_time ? ' — ' + h.appointment_time : ''}</div>
-          <div class="tl-proc">${h.procedures_catalog?.name || '—'}</div>
-          <div class="tl-doc">${h.professionals?.name || '—'}</div>
+          <div class="tl-proc">${h.procedure_name || '—'}</div>
+          <div class="tl-doc">${h.professional_name || '—'}</div>
           <div class="tl-meta">
-            <span>Convênio: ${h.insurances?.name || 'Particular'}</span>
+            <span>Convênio: ${h.insurance_name || 'Particular'}</span>
             <span>Status: ${h.status || '—'}</span>
           </div>
           ${h.notes ? `<div class="tl-notes">${h.notes}</div>` : ''}
@@ -357,7 +378,7 @@ function renderDetailContent(tab) {
               ${selectedPayments.map(p => `
                 <tr>
                   <td>${p.paid_at ? fmtDate(p.paid_at.split('T')[0]) : '—'}</td>
-                  <td>${p.appointments?.procedures_catalog?.name || '—'}</td>
+                  <td>${p.procedure_name || '—'}</td>
                   <td>${fmtCurrency(p.amount || 0)}</td>
                   <td>${fmtCurrency(p.final_amount || 0)}</td>
                   <td>${p.payment_method || '—'}</td>

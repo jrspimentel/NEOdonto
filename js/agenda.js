@@ -1,7 +1,7 @@
-// js/agenda.js — Agenda + Payments (integrated rewrite)
+// js/agenda.js — Agenda + Payments (robust - no relational joins)
 import { supabase } from './supabase.js';
 import { requireAuth, can } from './auth.js';
-import { initLayout, Icons, fmtDate, fmtDateISO, fmtCurrency, toast, showLoader } from './layout.js';
+import { initLayout, Icons, fmtDate, fmtDateISO, fmtCurrency, toast } from './layout.js';
 
 let currentUser = null;
 let activeFilter = 'all';
@@ -13,21 +13,27 @@ let payTargetAppt = null;
 let professionals = [];
 let proceduresCatalog = [];
 let insurancesList = [];
+let patientsCache = [];
 
 const STATUS_OPTIONS = ['Agendado','Paciente na recepção','Em atendimento','Finalizado','Faltou','Cancelado','Reagendado'];
 
 // ========== Init ==========
 async function init() {
-  currentUser = await requireAuth();
-  if (!currentUser) return;
-  if (!can(currentUser.profile.role, 'view_agenda')) { window.location.href = '../index.html'; return; }
+  try {
+    currentUser = await requireAuth();
+    if (!currentUser) return;
+    if (!can(currentUser.profile.role, 'view_agenda')) { window.location.href = '../index.html'; return; }
 
-  initLayout(currentUser, 'agenda');
-  setTodayDates();
-  setupEvents();
-  try { await loadLookups(); } catch(e) { console.warn('Lookups failed:', e); }
-  await loadAgenda();
-  try { setupRealtime(); } catch(e) { console.warn('Realtime setup failed:', e); }
+    initLayout(currentUser, 'agenda');
+    setTodayDates();
+    setupEvents();
+    await loadLookups();
+    await loadAgenda();
+    setupRealtime();
+  } catch(e) {
+    console.error('Init error:', e);
+    document.getElementById('agenda-tbody').innerHTML = `<tr><td colspan="8"><div class="empty"><p>Erro de inicialização: ${e.message}</p></div></td></tr>`;
+  }
 }
 
 function setTodayDates() {
@@ -76,13 +82,10 @@ function setupEvents() {
   document.getElementById('pay-form').addEventListener('submit', handlePayment);
 
   // Auto-calculate final amount
-  ['pay-amount', 'discount', 'surcharge'].forEach(name => {
-    const el = document.querySelector(`[name="${name === 'pay-amount' ? 'amount' : name}"]`);
-    if (el) el.addEventListener('input', calcFinal);
-  });
-  document.querySelector('#pay-form [name="amount"]')?.addEventListener('input', calcFinal);
-  document.querySelector('#pay-form [name="discount"]')?.addEventListener('input', calcFinal);
-  document.querySelector('#pay-form [name="surcharge"]')?.addEventListener('input', calcFinal);
+  const payForm = document.getElementById('pay-form');
+  payForm.querySelector('[name="amount"]')?.addEventListener('input', calcFinal);
+  payForm.querySelector('[name="discount"]')?.addEventListener('input', calcFinal);
+  payForm.querySelector('[name="surcharge"]')?.addEventListener('input', calcFinal);
 }
 
 function calcFinal() {
@@ -90,8 +93,7 @@ function calcFinal() {
   const a = parseFloat(form.querySelector('[name="amount"]').value) || 0;
   const d = parseFloat(form.querySelector('[name="discount"]').value) || 0;
   const s = parseFloat(form.querySelector('[name="surcharge"]').value) || 0;
-  const final = Math.max(0, a - d + s);
-  document.getElementById('pay-final').value = final.toFixed(2);
+  document.getElementById('pay-final').value = Math.max(0, a - d + s).toFixed(2);
 }
 
 function onDateChange() {
@@ -103,87 +105,116 @@ function onDateChange() {
 
 // ========== Realtime ==========
 function setupRealtime() {
-  supabase.channel('appointments-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-      loadAgenda();
-    })
-    .subscribe();
+  try {
+    supabase.channel('agenda-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => loadAgenda())
+      .subscribe();
+  } catch(e) { console.warn('Realtime:', e); }
 }
 
 // ========== Lookups ==========
 async function loadLookups() {
   try {
-    const [profRes, procRes, insRes] = await Promise.all([
-      supabase.from('professionals').select('id, name').order('name'),
-      supabase.from('procedures_catalog').select('id, name, default_value').order('name'),
-      supabase.from('insurances').select('id, name').order('name'),
-    ]);
-    professionals = profRes.data || [];
-    proceduresCatalog = procRes.data || [];
-    insurancesList = insRes.data || [];
-  } catch(e) {
-    console.warn('Failed to load lookups:', e);
-  }
+    const { data: p1, error: e1 } = await supabase.from('professionals').select('id, name').order('name');
+    if (e1) console.warn('professionals error:', e1.message);
+    professionals = p1 || [];
+  } catch(e) { console.warn('professionals failed:', e); }
+
+  try {
+    const { data: p2, error: e2 } = await supabase.from('procedures_catalog').select('id, name, default_value').order('name');
+    if (e2) console.warn('procedures_catalog error:', e2.message);
+    proceduresCatalog = p2 || [];
+  } catch(e) { console.warn('procedures_catalog failed:', e); }
+
+  try {
+    const { data: p3, error: e3 } = await supabase.from('insurances').select('id, name').order('name');
+    if (e3) console.warn('insurances error:', e3.message);
+    insurancesList = p3 || [];
+  } catch(e) { console.warn('insurances failed:', e); }
+
+  console.log('[Lookups] professionals:', professionals.length, 'procedures:', proceduresCatalog.length, 'insurances:', insurancesList.length);
 }
 
 // ========== Load ==========
 async function loadAgenda() {
   const tbody = document.getElementById('agenda-tbody');
-  showLoader(tbody);
+  tbody.innerHTML = '<tr><td colspan="9"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>';
 
   const ds = document.getElementById('date-start').value;
   const de = document.getElementById('date-end').value;
   if (!ds || !de) return;
 
-  // Load appointments + payment summary
-  const { data, error } = await supabase
-    .from('appointments')
-    .select('*, professionals(name), patients(name), procedures_catalog(name), insurances(name)')
-    .gte('appointment_date', ds).lte('appointment_date', de)
-    .order('appointment_date').order('appointment_time');
+  try {
+    // Step 1: Load raw appointments (no joins)
+    const { data: rawAppts, error: apptErr } = await supabase
+      .from('appointments')
+      .select('*')
+      .gte('appointment_date', ds).lte('appointment_date', de)
+      .order('appointment_date').order('appointment_time');
 
-  if (error) {
-    toast('Erro ao carregar agenda: ' + error.message, 'err');
-    console.error('Agenda load error:', error);
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><p>Erro: ${error.message}</p></div></td></tr>`;
-    return;
+    if (apptErr) {
+      console.error('Appointments query error:', apptErr);
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><p>Erro: ${apptErr.message}</p></div></td></tr>`;
+      return;
+    }
+
+    const data = rawAppts || [];
+
+    // Step 2: Build lookup maps from cached data
+    const profMap = {};
+    professionals.forEach(p => profMap[p.id] = p.name);
+    const procMap = {};
+    proceduresCatalog.forEach(p => procMap[p.id] = p.name);
+    const insMap = {};
+    insurancesList.forEach(p => insMap[p.id] = p.name);
+
+    // Step 3: Load patient names for this batch
+    const patIds = [...new Set(data.filter(a => a.patient_id).map(a => a.patient_id))];
+    const patMap = {};
+    if (patIds.length > 0) {
+      const { data: pats } = await supabase.from('patients').select('id, name').in('id', patIds);
+      (pats || []).forEach(p => patMap[p.id] = p.name);
+    }
+
+    // Step 4: Load payment summaries
+    const apptIds = data.map(a => a.id);
+    let paySummaries = {};
+    if (apptIds.length > 0) {
+      try {
+        const { data: pays } = await supabase.from('payments')
+          .select('appointment_id, final_amount, payment_status')
+          .in('appointment_id', apptIds);
+        (pays || []).forEach(p => {
+          if (!paySummaries[p.appointment_id]) paySummaries[p.appointment_id] = { paid: 0, status: 'Pendente' };
+          if (p.payment_status === 'Pago' || p.payment_status === 'Parcialmente pago') {
+            paySummaries[p.appointment_id].paid += (p.final_amount || 0);
+          }
+        });
+        Object.keys(paySummaries).forEach(aid => {
+          const appt = data.find(a => a.id === aid);
+          const total = appt?.value || 0;
+          const paid = paySummaries[aid].paid;
+          if (paid >= total && total > 0) paySummaries[aid].status = 'Pago';
+          else if (paid > 0) paySummaries[aid].status = 'Parcial';
+        });
+      } catch(e) { console.warn('Payments query failed:', e); }
+    }
+
+    // Step 5: Enrich appointments
+    appointments = data.map(a => ({
+      ...a,
+      professional_name: profMap[a.professional_id] || '—',
+      patient_name: patMap[a.patient_id] || '—',
+      procedure_name: procMap[a.procedure_id] || '—',
+      insurance_name: insMap[a.insurance_id] || '—',
+      pay_summary: paySummaries[a.id] || { paid: 0, status: 'Pendente' },
+    }));
+
+    renderTable();
+  } catch (err) {
+    console.error('loadAgenda error:', err);
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><p>Erro: ${err.message || err}</p></div></td></tr>`;
   }
-
-  // Load payment summaries for these appointments
-  const ids = (data || []).map(a => a.id);
-  let paySummaries = {};
-  if (ids.length > 0) {
-    const { data: pays } = await supabase
-      .from('payments')
-      .select('appointment_id, final_amount, payment_status')
-      .in('appointment_id', ids);
-    (pays || []).forEach(p => {
-      if (!paySummaries[p.appointment_id]) paySummaries[p.appointment_id] = { paid: 0, status: 'Pendente' };
-      if (p.payment_status === 'Pago' || p.payment_status === 'Parcialmente pago') {
-        paySummaries[p.appointment_id].paid += (p.final_amount || 0);
-      }
-    });
-    // Determine overall payment status
-    Object.keys(paySummaries).forEach(aid => {
-      const appt = data.find(a => a.id === aid);
-      const total = appt?.value || 0;
-      const paid = paySummaries[aid].paid;
-      if (paid >= total && total > 0) paySummaries[aid].status = 'Pago';
-      else if (paid > 0) paySummaries[aid].status = 'Parcial';
-      else paySummaries[aid].status = 'Pendente';
-    });
-  }
-
-  appointments = (data || []).map(a => ({
-    ...a,
-    professional_name: a.professionals?.name || '—',
-    patient_name: a.patients?.name || '—',
-    procedure_name: a.procedures_catalog?.name || '—',
-    insurance_name: a.insurances?.name || '—',
-    pay_summary: paySummaries[a.id] || { paid: 0, status: 'Pendente' },
-  }));
-
-  renderTable();
 }
 
 // ========== Render ==========
@@ -214,11 +245,15 @@ function renderTable() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${colCount}"><div class="empty"><p>Nenhum agendamento encontrado para o período selecionado</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colCount}"><div class="empty"><p>Nenhum agendamento encontrado</p></div></td></tr>`;
     return;
   }
 
-  const payBadge = (s) => ({ 'Pago':'<span class="badge badge-green" title="Pago">💰</span>', 'Parcial':'<span class="badge badge-orange" title="Parcialmente pago">◐</span>', 'Pendente':'<span class="badge badge-gray" title="Pendente">🟡</span>' }[s] || '<span class="badge badge-gray">—</span>');
+  const payBadge = (s) => {
+    if (s === 'Pago') return '<span class="badge badge-green">Pago</span>';
+    if (s === 'Parcial') return '<span class="badge badge-orange">Parcial</span>';
+    return '<span class="badge badge-gray">—</span>';
+  };
 
   tbody.innerHTML = filtered.map(a => `
     <tr data-id="${a.id}">
@@ -244,13 +279,13 @@ function renderTable() {
 
   // Inline status change
   tbody.querySelectorAll('.inline-select').forEach(sel => {
-    const orig = sel.value;
     sel.addEventListener('change', async () => {
+      const origValue = sel.dataset.orig || sel.value;
       const { error } = await supabase.from('appointments').update({ status: sel.value, updated_at: new Date().toISOString() }).eq('id', sel.dataset.id);
-      if (error) { toast('Erro: ' + error.message, 'err'); sel.value = orig; return; }
-      const a = appointments.find(x => x.id === sel.dataset.id); if (a) a.status = sel.value;
+      if (error) { toast('Erro ao alterar status: ' + error.message, 'err'); sel.value = origValue; return; }
       toast('Status atualizado!');
     });
+    sel.dataset.orig = sel.value;
   });
 
   // Action buttons
@@ -276,15 +311,23 @@ async function openModal(mode, id = null) {
   fillSelect(form.querySelector('[name="professional_id"]'), professionals);
   fillSelect(form.querySelector('[name="procedure_id"]'), proceduresCatalog);
   fillSelect(form.querySelector('[name="insurance_id"]'), insurancesList);
+
+  // Load patients
   const patSel = form.querySelector('[name="patient_id"]');
-  const { data: pts } = await supabase.from('patients').select('id, name').order('name');
-  fillSelect(patSel, pts || []);
+  try {
+    const { data: pts } = await supabase.from('patients').select('id, name').order('name');
+    fillSelect(patSel, pts || []);
+  } catch(e) {
+    console.warn('Failed to load patients for form:', e);
+    fillSelect(patSel, []);
+  }
 
   // Auto-fill value when procedure changes
-  form.querySelector('[name="procedure_id"]').addEventListener('change', function() {
+  const procSel = form.querySelector('[name="procedure_id"]');
+  procSel.onchange = function() {
     const proc = proceduresCatalog.find(p => p.id === this.value);
     if (proc && proc.default_value) form.querySelector('[name="value"]').value = proc.default_value;
-  });
+  };
 
   if (mode === 'edit' && id) {
     document.getElementById('ag-modal-title').textContent = 'Editar Agendamento';
@@ -308,45 +351,66 @@ async function openModal(mode, id = null) {
 }
 
 function fillSelect(sel, items) {
+  if (!sel) return;
   sel.innerHTML = '<option value="">Selecione...</option>';
-  items.forEach(i => { const o = document.createElement('option'); o.value = i.id; o.textContent = i.name; sel.appendChild(o); });
+  items.forEach(i => {
+    const o = document.createElement('option');
+    o.value = i.id;
+    o.textContent = i.name;
+    sel.appendChild(o);
+  });
 }
 
 function closeModal() { document.getElementById('ag-overlay').classList.remove('open'); }
 
 async function handleSave(e) {
   e.preventDefault();
-  const form = e.target; const fd = new FormData(form);
+  const form = e.target;
+  const fd = new FormData(form);
+
+  const profId = fd.get('professional_id');
+  const patId = fd.get('patient_id');
+  const procId = fd.get('procedure_id');
+  const insId = fd.get('insurance_id');
+
+  if (!profId) { toast('Selecione um profissional', 'err'); return; }
+  if (!patId) { toast('Selecione um paciente', 'err'); return; }
+  if (!procId) { toast('Selecione um procedimento', 'err'); return; }
+  if (!insId) { toast('Selecione um convênio', 'err'); return; }
+  if (!fd.get('appointment_date')) { toast('Data é obrigatória', 'err'); return; }
+  if (!fd.get('appointment_time')) { toast('Hora é obrigatória', 'err'); return; }
+
   const data = {
-    professional_id: fd.get('professional_id') || null,
-    patient_id: fd.get('patient_id') || null,
-    procedure_id: fd.get('procedure_id') || null,
-    insurance_id: fd.get('insurance_id') || null,
+    professional_id: profId,
+    patient_id: patId,
+    procedure_id: procId,
+    insurance_id: insId,
     appointment_date: fd.get('appointment_date'),
     appointment_time: fd.get('appointment_time'),
     value: parseFloat(fd.get('value')) || 0,
-    status: fd.get('status'),
-    notes: fd.get('notes'),
+    status: fd.get('status') || 'Agendado',
+    notes: fd.get('notes') || '',
   };
 
-  if (!data.professional_id) { toast('Selecione um profissional', 'err'); return; }
-  if (!data.patient_id) { toast('Selecione um paciente', 'err'); return; }
-  if (!data.procedure_id) { toast('Selecione um procedimento', 'err'); return; }
-  if (!data.insurance_id) { toast('Selecione um convênio', 'err'); return; }
-  if (!data.appointment_date) { toast('Data é obrigatória', 'err'); return; }
-  if (!data.appointment_time) { toast('Hora é obrigatória', 'err'); return; }
+  console.log('[Agenda] Saving appointment:', data);
 
-  if (form.dataset.mode === 'create') {
-    const { error } = await supabase.from('appointments').insert([data]);
-    if (error) { toast('Erro: ' + error.message, 'err'); return; }
-    toast('Agendamento criado com sucesso!');
-  } else {
-    data.updated_at = new Date().toISOString();
-    const { error } = await supabase.from('appointments').update(data).eq('id', form.dataset.apptId);
-    if (error) { toast('Erro: ' + error.message, 'err'); return; }
-    toast('Agendamento atualizado!');
+  try {
+    if (form.dataset.mode === 'create') {
+      const { error } = await supabase.from('appointments').insert([data]);
+      if (error) { toast('Erro ao criar: ' + error.message, 'err'); console.error('Insert error:', error); return; }
+      toast('Agendamento criado com sucesso!');
+    } else {
+      data.updated_at = new Date().toISOString();
+      const { error } = await supabase.from('appointments').update(data).eq('id', form.dataset.apptId);
+      if (error) { toast('Erro ao atualizar: ' + error.message, 'err'); console.error('Update error:', error); return; }
+      toast('Agendamento atualizado!');
+    }
+    closeModal();
+    await loadAgenda();
+  } catch(err) {
+    toast('Erro inesperado: ' + err.message, 'err');
+    console.error('Save error:', err);
   }
-  closeModal(); await loadAgenda();
 }
 
 // ========== Delete Modal ==========
@@ -369,17 +433,15 @@ async function openPayModal(apptId) {
   const form = document.getElementById('pay-form');
   form.reset();
 
-  // Show appointment info
   document.getElementById('pay-info').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;background:var(--bg-input);border-radius:var(--radius-sm)">
       <div><small style="color:var(--t3)">Paciente</small><div style="font-weight:600">${a.patient_name}</div></div>
       <div><small style="color:var(--t3)">Procedimento</small><div style="font-weight:600">${a.procedure_name}</div></div>
-      <div><small style="color:var(--t3)">Valor do procedimento</small><div style="font-weight:600;color:var(--p-400)">${fmtCurrency(a.value || 0)}</div></div>
+      <div><small style="color:var(--t3)">Valor</small><div style="font-weight:600;color:var(--p-400)">${fmtCurrency(a.value || 0)}</div></div>
       <div><small style="color:var(--t3)">Já pago</small><div style="font-weight:600;color:var(--success)">${fmtCurrency(a.pay_summary.paid)}</div></div>
     </div>
   `;
 
-  // Set default values
   const remaining = Math.max(0, (a.value || 0) - a.pay_summary.paid);
   form.querySelector('[name="amount"]').value = remaining.toFixed(2);
   form.querySelector('[name="discount"]').value = '0';
@@ -387,29 +449,27 @@ async function openPayModal(apptId) {
   calcFinal();
 
   // Load payment history
-  const { data: history } = await supabase.from('payments')
-    .select('*, profiles(name)').eq('appointment_id', apptId).order('created_at', { ascending: false });
-
-  const histDiv = document.getElementById('pay-history');
-  if (history && history.length > 0) {
-    histDiv.innerHTML = `
-      <h4 style="font-size:.85rem;font-weight:700;margin-bottom:8px">Histórico de pagamentos</h4>
-      <div class="timeline">${history.map(h => `
-        <div class="tl-item" style="padding:8px 0">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:600;color:var(--p-400)">${fmtCurrency(h.final_amount)}</span>
-            <span class="badge ${h.payment_status === 'Pago' ? 'badge-green' : h.payment_status === 'Cancelado' ? 'badge-gray' : 'badge-orange'}">${h.payment_status}</span>
+  try {
+    const { data: history } = await supabase.from('payments')
+      .select('*').eq('appointment_id', apptId).order('created_at', { ascending: false });
+    const histDiv = document.getElementById('pay-history');
+    if (history && history.length > 0) {
+      histDiv.innerHTML = `
+        <h4 style="font-size:.85rem;font-weight:700;margin-bottom:8px">Histórico de pagamentos</h4>
+        ${history.map(h => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;color:var(--p-400)">${fmtCurrency(h.final_amount)}</span>
+              <span class="badge ${h.payment_status === 'Pago' ? 'badge-green' : 'badge-orange'}">${h.payment_status}</span>
+            </div>
+            <div style="font-size:.75rem;color:var(--t3);margin-top:4px">${h.payment_method} • ${h.paid_at ? new Date(h.paid_at).toLocaleDateString('pt-BR') : '—'}</div>
           </div>
-          <div style="font-size:.75rem;color:var(--t3);margin-top:4px">
-            ${h.payment_method} • ${h.paid_at ? fmtDate(h.paid_at.split('T')[0]) : '—'}
-            ${h.profiles?.name ? ' • por ' + h.profiles.name : ''}
-          </div>
-          ${h.notes ? `<div style="font-size:.75rem;color:var(--t2);margin-top:2px">${h.notes}</div>` : ''}
-        </div>
-      `).join('')}</div>
-    `;
-  } else {
-    histDiv.innerHTML = '';
+        `).join('')}
+      `;
+    } else { histDiv.innerHTML = ''; }
+  } catch(e) {
+    console.warn('Payment history failed:', e);
+    document.getElementById('pay-history').innerHTML = '';
   }
 
   document.getElementById('pay-overlay').classList.add('open');
@@ -420,7 +480,8 @@ function closePayModal() { payTargetAppt = null; document.getElementById('pay-ov
 async function handlePayment(e) {
   e.preventDefault();
   if (!payTargetAppt) return;
-  const form = e.target; const fd = new FormData(form);
+  const form = e.target;
+  const fd = new FormData(form);
 
   const amount = parseFloat(fd.get('amount')) || 0;
   const discount = parseFloat(fd.get('discount')) || 0;
@@ -428,7 +489,6 @@ async function handlePayment(e) {
   const finalAmount = Math.max(0, amount - discount + surcharge);
 
   if (finalAmount <= 0) { toast('Valor inválido', 'err'); return; }
-  if (discount > amount) { toast('Desconto não pode ser maior que o valor', 'err'); return; }
 
   const data = {
     appointment_id: payTargetAppt.id,
@@ -437,19 +497,24 @@ async function handlePayment(e) {
     discount,
     surcharge,
     final_amount: finalAmount,
-    payment_method: fd.get('payment_method'),
-    payment_status: fd.get('payment_status'),
+    payment_method: fd.get('payment_method') || 'Dinheiro',
+    payment_status: fd.get('payment_status') || 'Pago',
     paid_at: new Date().toISOString(),
-    notes: fd.get('pay_notes'),
-    created_by: currentUser.profile.id || currentUser.id,
+    notes: fd.get('pay_notes') || '',
+    created_by: currentUser.id || null,
   };
 
-  const { error } = await supabase.from('payments').insert([data]);
-  if (error) { toast('Erro ao registrar pagamento: ' + error.message, 'err'); return; }
+  console.log('[Payment] Saving:', data);
 
-  toast('Pagamento registrado com sucesso!');
-  closePayModal();
-  await loadAgenda();
+  try {
+    const { error } = await supabase.from('payments').insert([data]);
+    if (error) { toast('Erro ao registrar pagamento: ' + error.message, 'err'); console.error('Payment error:', error); return; }
+    toast('Pagamento registrado!');
+    closePayModal();
+    await loadAgenda();
+  } catch(err) {
+    toast('Erro: ' + err.message, 'err');
+  }
 }
 
 init();
