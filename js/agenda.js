@@ -105,8 +105,6 @@ async function loadAgenda() {
 function renderTable() {
   const role = currentUser.profile.role;
   const canChangeSituation = can(role, 'change_situation');
-  const canEdit = can(role, 'edit_appointment');
-  const canCancel = can(role, 'cancel_appointment');
 
   const tbody = document.getElementById('agenda-tbody');
 
@@ -126,7 +124,7 @@ function renderTable() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><p>Nenhum atendimento${activeFilter !== 'all' ? ' com este filtro' : ' para este dia'}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhum atendimento${activeFilter !== 'all' ? ' com este filtro' : ' para este dia'}</p></div></td></tr>`;
     return;
   }
 
@@ -144,12 +142,6 @@ function renderTable() {
             </select>`
           : `<span class="badge ${situationBadge(a.situation)}">${a.situation || '—'}</span>`
         }
-      </td>
-      <td>
-        <div style="display:flex;gap:4px">
-          ${canEdit ? `<button class="btn-icon" title="Editar" data-action="edit" data-id="${a.id}">${Icons.edit}</button>` : ''}
-          ${canCancel ? `<button class="btn-icon danger" title="Cancelar" data-action="cancel" data-id="${a.id}">${Icons.close}</button>` : ''}
-        </div>
       </td>
     </tr>
   `).join('');
@@ -177,16 +169,7 @@ function renderTable() {
       const appt = appointments.find(a => a.id === id);
       if (appt) appt[field] = newValue;
 
-      toast('Situação atualizada!');
-    });
-  });
-
-  // Action buttons
-  tbody.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      if (btn.dataset.action === 'edit') openModal('edit', id);
-      else if (btn.dataset.action === 'cancel') cancelAppointment(id);
+      toast('Status atualizado!');
     });
   });
 }
