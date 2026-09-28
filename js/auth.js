@@ -96,7 +96,7 @@ const PERMISSIONS = {
   edit_patient:          ['admin', 'dentista', 'recepcionista'],
   delete_patient:        ['admin'],
   view_history:          ['admin', 'dentista', 'recepcionista', 'auxiliar'],
-  create_procedure:      ['admin', 'dentista'],
+  create_procedure:      ['admin', 'dentista', 'recepcionista'],
   edit_procedure:        ['admin', 'dentista'],
   delete_procedure:      ['admin'],
   view_agenda:           ['admin', 'dentista', 'recepcionista', 'auxiliar'],
