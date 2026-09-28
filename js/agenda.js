@@ -8,8 +8,7 @@ let selectedDate = new Date();
 let activeFilter = 'all';
 let appointments = [];
 
-const STATUS_OPTIONS = ['Agendado', 'Realizado', 'Faltou', 'Cancelado'];
-const SITUATION_OPTIONS = ['Agendado', 'Paciente na recepção', 'Em atendimento', 'Finalizado', 'Cancelado'];
+const SITUATION_OPTIONS = ['Agendado', 'Paciente na recepção', 'Em atendimento', 'Finalizado', 'Faltou', 'Cancelado'];
 
 async function init() {
   currentUser = await requireAuth();
@@ -105,7 +104,6 @@ async function loadAgenda() {
 // ---------- Render ----------
 function renderTable() {
   const role = currentUser.profile.role;
-  const canChangeStatus = can(role, 'change_status');
   const canChangeSituation = can(role, 'change_situation');
   const canEdit = can(role, 'edit_appointment');
   const canCancel = can(role, 'cancel_appointment');
@@ -119,16 +117,16 @@ function renderTable() {
       agendados: a => a.situation === 'Agendado',
       recepcao: a => a.situation === 'Paciente na recepção',
       atendimento: a => a.situation === 'Em atendimento',
-      realizados: a => a.status === 'Realizado',
-      faltou: a => a.status === 'Faltou',
-      cancelados: a => a.status === 'Cancelado',
+      finalizados: a => a.situation === 'Finalizado',
+      faltou: a => a.situation === 'Faltou',
+      cancelados: a => a.situation === 'Cancelado',
     };
     const fn = filterMap[activeFilter];
     if (fn) filtered = appointments.filter(fn);
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><p>Nenhum atendimento${activeFilter !== 'all' ? ' com este filtro' : ' para este dia'}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><p>Nenhum atendimento${activeFilter !== 'all' ? ' com este filtro' : ' para este dia'}</p></div></td></tr>`;
     return;
   }
 
@@ -139,14 +137,6 @@ function renderTable() {
       <td>${a.procedure_name || '—'}</td>
       <td>${a.insurance || 'Particular'}</td>
       <td>${a.time || '—'}</td>
-      <td>
-        ${canChangeStatus
-          ? `<select class="inline-select" data-field="status" data-id="${a.id}">
-              ${STATUS_OPTIONS.map(o => `<option ${a.status === o ? 'selected' : ''}>${o}</option>`).join('')}
-            </select>`
-          : `<span class="badge ${statusBadge(a.status)}">${a.status || '—'}</span>`
-        }
-      </td>
       <td>
         ${canChangeSituation
           ? `<select class="inline-select" data-field="situation" data-id="${a.id}">
@@ -187,7 +177,7 @@ function renderTable() {
       const appt = appointments.find(a => a.id === id);
       if (appt) appt[field] = newValue;
 
-      toast(`${field === 'status' ? 'Status' : 'Situação'} atualizado(a)!`);
+      toast('Situação atualizada!');
     });
   });
 
@@ -201,12 +191,8 @@ function renderTable() {
   });
 }
 
-function statusBadge(s) {
-  return { 'Realizado': 'badge-green', 'Faltou': 'badge-red', 'Cancelado': 'badge-gray', 'Agendado': 'badge-blue' }[s] || 'badge-gray';
-}
-
 function situationBadge(s) {
-  return { 'Finalizado': 'badge-green', 'Em atendimento': 'badge-purple', 'Paciente na recepção': 'badge-orange', 'Cancelado': 'badge-gray', 'Agendado': 'badge-blue' }[s] || 'badge-gray';
+  return { 'Finalizado': 'badge-green', 'Em atendimento': 'badge-purple', 'Paciente na recepção': 'badge-orange', 'Faltou': 'badge-red', 'Cancelado': 'badge-gray', 'Agendado': 'badge-blue' }[s] || 'badge-gray';
 }
 
 // ---------- Modal ----------
@@ -241,7 +227,6 @@ async function openModal(mode, id = null) {
       form.querySelector('[name="time"]').value = a.time || '';
       form.querySelector('[name="insurance"]').value = a.insurance || '';
       form.querySelector('[name="value"]').value = a.value || '';
-      form.querySelector('[name="status"]').value = a.status || 'Agendado';
       form.querySelector('[name="situation"]').value = a.situation || 'Agendado';
       form.querySelector('[name="notes"]').value = a.notes || '';
     }
@@ -269,7 +254,6 @@ async function handleSave(e) {
     time: fd.get('time') || null,
     insurance: fd.get('insurance'),
     value: parseFloat(fd.get('value')) || 0,
-    status: fd.get('status'),
     situation: fd.get('situation'),
     notes: fd.get('notes'),
   };
@@ -297,7 +281,7 @@ async function cancelAppointment(id) {
 
   const { error } = await supabase
     .from('procedures')
-    .update({ status: 'Cancelado', situation: 'Cancelado', updated_at: new Date().toISOString() })
+    .update({ situation: 'Cancelado', updated_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) { toast('Erro: ' + error.message, 'err'); return; }

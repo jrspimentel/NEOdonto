@@ -349,7 +349,6 @@ function renderDetailContent(tab) {
           <div class="tl-doc">${h.professional || '—'}</div>
           <div class="tl-meta">
             <span>Convênio: ${h.insurance || 'Particular'}</span>
-            <span>Status: ${h.status || '—'}</span>
             <span>Situação: ${h.situation || '—'}</span>
           </div>
           ${h.notes ? `<div class="tl-notes">${h.notes}</div>` : ''}
@@ -400,7 +399,6 @@ function openProcedureModal(procId = null) {
       form.querySelector('[name="paid"]').checked = proc.paid || false;
       form.querySelector('[name="payment_date"]').value = proc.payment_date || '';
       form.querySelector('[name="payment_method"]').value = proc.payment_method || '';
-      form.querySelector('[name="status"]').value = proc.status || 'Agendado';
       form.querySelector('[name="situation"]').value = proc.situation || 'Agendado';
       form.querySelector('[name="notes"]').value = proc.notes || '';
     }
@@ -434,7 +432,6 @@ async function handleSaveProcedure(e) {
     paid: form.querySelector('[name="paid"]').checked,
     payment_date: fd.get('payment_date') || null,
     payment_method: fd.get('payment_method'),
-    status: fd.get('status'),
     situation: fd.get('situation'),
     notes: fd.get('notes'),
   };

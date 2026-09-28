@@ -53,7 +53,7 @@
           <button class="tab" data-filter="agendados">Agendados</button>
           <button class="tab" data-filter="recepcao">Recepção</button>
           <button class="tab" data-filter="atendimento">Em atendimento</button>
-          <button class="tab" data-filter="realizados">Realizados</button>
+          <button class="tab" data-filter="finalizados">Finalizados</button>
           <button class="tab" data-filter="faltou">Faltou</button>
           <button class="tab" data-filter="cancelados">Cancelados</button>
         </div>
@@ -69,13 +69,12 @@
                   <th>Procedimento</th>
                   <th>Convênio</th>
                   <th>Hora</th>
-                  <th>Status</th>
                   <th>Situação</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody id="agenda-tbody">
-                <tr><td colspan="8"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
+                <tr><td colspan="7"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -126,22 +125,14 @@
               <label>Valor (R$)</label>
               <input type="number" name="value" step="0.01" placeholder="0,00"/>
             </div>
-            <div class="form-group">
-              <label>Status</label>
-              <select name="status">
-                <option>Agendado</option>
-                <option>Realizado</option>
-                <option>Faltou</option>
-                <option>Cancelado</option>
-              </select>
-            </div>
-            <div class="form-group">
+            <div class="form-group full">
               <label>Situação</label>
               <select name="situation">
                 <option>Agendado</option>
                 <option>Paciente na recepção</option>
                 <option>Em atendimento</option>
                 <option>Finalizado</option>
+                <option>Faltou</option>
                 <option>Cancelado</option>
               </select>
             </div>
