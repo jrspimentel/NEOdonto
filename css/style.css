@@ -353,3 +353,20 @@ tbody td{padding:11px 18px;font-size:.86rem;border-bottom:1px solid var(--border
   .topbar-title h2{font-size:1.1rem}
   .stat-value{font-size:1.2rem}
 }
+
+/* Date range inputs */
+.input-date{
+  background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--t1);padding:7px 12px;font-size:.85rem;font-family:var(--font);
+  transition:border var(--fast);
+}
+.input-date:hover{border-color:var(--border-hover)}
+.input-date:focus{outline:none;border-color:var(--p-400);box-shadow:0 0 0 2px rgba(26,179,134,.18)}
+
+/* Delete/Danger button */
+.btn-d{
+  background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.25);
+  padding:6px 14px;border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;
+  transition:all var(--fast);cursor:pointer;
+}
+.btn-d:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.4)}

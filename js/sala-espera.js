@@ -28,10 +28,10 @@ async function loadWaitingRoom() {
     const today = fmtDateISO(new Date());
 
     const { data, error } = await supabase
-      .from('procedures')
-      .select('professional')
-      .eq('date', today)
-      .eq('situation', 'Paciente na recepção');
+      .from('appointments')
+      .select('professional, professionals(name)')
+      .eq('appointment_date', today)
+      .eq('status', 'Paciente na recepção');
 
     if (error) throw error;
 
@@ -41,7 +41,7 @@ async function loadWaitingRoom() {
     // Group by professional
     const grouped = {};
     records.forEach(r => {
-      const name = r.professional || 'Sem profissional';
+      const name = r.professionals?.name || r.professional || 'Sem profissional';
       grouped[name] = (grouped[name] || 0) + 1;
     });
 

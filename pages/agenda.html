@@ -21,7 +21,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h2>Agenda do Dia</h2>
-          <p>Acompanhe os atendimentos do dia</p>
+          <p>Acompanhe os atendimentos do período</p>
         </div>
         <div class="topbar-actions">
           <button class="btn btn-p btn-sm" id="btn-new-appointment">
@@ -32,22 +32,17 @@
       </header>
 
       <div class="page">
-        <!-- Date Navigation -->
-        <div class="filters-row" style="justify-content:space-between">
-          <div class="date-nav">
-            <button id="btn-prev-day" title="Dia anterior">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <span class="date-display" id="date-display">—</span>
-            <button id="btn-next-day" title="Próximo dia">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-            <input type="date" id="date-picker"/>
-            <button class="btn btn-s btn-sm" id="btn-today">Hoje</button>
+        <!-- Date Range Filter -->
+        <div class="filters-row" style="gap:12px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="date" id="date-start" class="input-date"/>
+            <span style="color:var(--t3);font-size:.85rem">até</span>
+            <input type="date" id="date-end" class="input-date"/>
           </div>
+          <button class="btn btn-s btn-sm" id="btn-today">Hoje</button>
         </div>
 
-        <!-- Filters -->
+        <!-- Status Filters -->
         <div class="tabs" style="margin-bottom:18px">
           <button class="tab active" data-filter="all">Todos</button>
           <button class="tab" data-filter="agendados">Agendados</button>
@@ -56,13 +51,14 @@
           <button class="tab" data-filter="finalizados">Finalizados</button>
           <button class="tab" data-filter="faltou">Faltou</button>
           <button class="tab" data-filter="cancelados">Cancelados</button>
+          <button class="tab" data-filter="reagendados">Reagendados</button>
         </div>
 
         <!-- Agenda Table -->
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead>
+              <thead id="agenda-thead">
                 <tr>
                   <th>Profissional</th>
                   <th>Paciente</th>
@@ -70,10 +66,11 @@
                   <th>Convênio</th>
                   <th>Hora</th>
                   <th>Status</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody id="agenda-tbody">
-                <tr><td colspan="6"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
+                <tr><td colspan="7"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -94,45 +91,48 @@
       <form id="ag-form">
         <div class="modal-body">
           <div class="form-grid">
-            <div class="form-group full">
+            <div class="form-group">
+              <label>Profissional *</label>
+              <select name="professional_id" required>
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>Paciente *</label>
               <select name="patient_id" required>
                 <option value="">Selecione...</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Profissional</label>
-              <input type="text" name="professional" placeholder="Nome do dentista"/>
-            </div>
-            <div class="form-group">
               <label>Procedimento *</label>
-              <input type="text" name="procedure_name" placeholder="Ex: Limpeza Dental" required/>
+              <select name="procedure_id" required>
+                <option value="">Selecione...</option>
+              </select>
             </div>
             <div class="form-group">
-              <label>Data</label>
-              <input type="date" name="date"/>
+              <label>Convênio *</label>
+              <select name="insurance_id" required>
+                <option value="">Selecione...</option>
+              </select>
             </div>
             <div class="form-group">
-              <label>Hora</label>
-              <input type="time" name="time"/>
+              <label>Data *</label>
+              <input type="date" name="appointment_date" required/>
             </div>
             <div class="form-group">
-              <label>Convênio</label>
-              <input type="text" name="insurance" placeholder="Particular"/>
-            </div>
-            <div class="form-group">
-              <label>Valor (R$)</label>
-              <input type="number" name="value" step="0.01" placeholder="0,00"/>
+              <label>Hora *</label>
+              <input type="time" name="appointment_time" required/>
             </div>
             <div class="form-group full">
               <label>Status</label>
-              <select name="situation">
+              <select name="status">
                 <option>Agendado</option>
                 <option>Paciente na recepção</option>
                 <option>Em atendimento</option>
                 <option>Finalizado</option>
                 <option>Faltou</option>
                 <option>Cancelado</option>
+                <option>Reagendado</option>
               </select>
             </div>
             <div class="form-group full">
@@ -143,15 +143,32 @@
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-s" id="ag-modal-cancel">Cancelar</button>
-          <button type="submit" class="btn btn-p">Salvar</button>
+          <button type="submit" class="btn btn-p">Salvar Agendamento</button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="del-overlay">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head">
+        <h3>Confirmar Exclusão</h3>
+        <button class="btn-icon" id="del-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Deseja realmente excluir este agendamento?</p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-s" id="del-cancel">Cancelar</button>
+        <button type="button" class="btn btn-d" id="del-confirm">Excluir</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-wrap" id="toast-wrap"></div>
-
   <script type="module" src="../js/agenda.js"></script>
-
 </body>
 </html>

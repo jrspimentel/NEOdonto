@@ -277,10 +277,10 @@ async function openDetail(id) {
   if (!selectedPatient) return;
 
   const { data: history } = await supabase
-    .from('procedures')
-    .select('*')
+    .from('appointments')
+    .select('*, professionals(name), procedures_catalog(name), insurances(name)')
     .eq('patient_id', id)
-    .order('date', { ascending: false });
+    .order('appointment_date', { ascending: false });
 
   selectedHistory = history || [];
 
@@ -344,12 +344,12 @@ function renderDetailContent(tab) {
     } else {
       content.innerHTML = `<div class="timeline">${selectedHistory.map(h => `
         <div class="tl-item">
-          <div class="tl-date">${fmtDate(h.date)}${h.time ? ' — ' + h.time : ''}</div>
-          <div class="tl-proc">${h.procedure_name || '—'}</div>
-          <div class="tl-doc">${h.professional || '—'}</div>
+          <div class="tl-date">${fmtDate(h.appointment_date)}${h.appointment_time ? ' — ' + h.appointment_time : ''}</div>
+          <div class="tl-proc">${h.procedures_catalog?.name || '—'}</div>
+          <div class="tl-doc">${h.professionals?.name || '—'}</div>
           <div class="tl-meta">
-            <span>Convênio: ${h.insurance || 'Particular'}</span>
-            <span>Status: ${h.situation || '—'}</span>
+            <span>Convênio: ${h.insurances?.name || 'Particular'}</span>
+            <span>Status: ${h.status || '—'}</span>
           </div>
           ${h.notes ? `<div class="tl-notes">${h.notes}</div>` : ''}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
@@ -390,16 +390,16 @@ function openProcedureModal(procId = null) {
     form.dataset.procId = procId;
     const proc = selectedHistory.find(h => h.id === procId);
     if (proc) {
-      form.querySelector('[name="professional"]').value = proc.professional || '';
-      form.querySelector('[name="procedure_name"]').value = proc.procedure_name || '';
-      form.querySelector('[name="date"]').value = proc.date || '';
-      form.querySelector('[name="time"]').value = proc.time || '';
-      form.querySelector('[name="insurance"]').value = proc.insurance || '';
+      form.querySelector('[name="professional"]').value = proc.professionals?.name || proc.professional || '';
+      form.querySelector('[name="procedure_name"]').value = proc.procedures_catalog?.name || proc.procedure_name || '';
+      form.querySelector('[name="date"]').value = proc.appointment_date || proc.date || '';
+      form.querySelector('[name="time"]').value = proc.appointment_time || proc.time || '';
+      form.querySelector('[name="insurance"]').value = proc.insurances?.name || proc.insurance || '';
       form.querySelector('[name="value"]').value = proc.value || '';
       form.querySelector('[name="paid"]').checked = proc.paid || false;
       form.querySelector('[name="payment_date"]').value = proc.payment_date || '';
       form.querySelector('[name="payment_method"]').value = proc.payment_method || '';
-      form.querySelector('[name="situation"]').value = proc.situation || 'Agendado';
+      form.querySelector('[name="situation"]').value = proc.status || proc.situation || 'Agendado';
       form.querySelector('[name="notes"]').value = proc.notes || '';
     }
   } else {
@@ -425,26 +425,26 @@ async function handleSaveProcedure(e) {
     patient_id: selectedPatient.id,
     professional: fd.get('professional'),
     procedure_name: fd.get('procedure_name'),
-    date: fd.get('date') || null,
-    time: fd.get('time') || null,
+    appointment_date: fd.get('date') || null,
+    appointment_time: fd.get('time') || null,
     insurance: fd.get('insurance'),
     value: parseFloat(fd.get('value')) || 0,
     paid: form.querySelector('[name="paid"]').checked,
     payment_date: fd.get('payment_date') || null,
     payment_method: fd.get('payment_method'),
-    situation: fd.get('situation'),
+    status: fd.get('situation'),
     notes: fd.get('notes'),
   };
 
   if (!data.procedure_name) { toast('Procedimento é obrigatório', 'err'); return; }
 
   if (form.dataset.mode === 'create') {
-    const { error } = await supabase.from('procedures').insert([data]);
+    const { error } = await supabase.from('appointments').insert([data]);
     if (error) { toast('Erro ao criar: ' + error.message, 'err'); return; }
     toast('Atendimento registrado!');
   } else {
     data.updated_at = new Date().toISOString();
-    const { error } = await supabase.from('procedures').update(data).eq('id', form.dataset.procId);
+    const { error } = await supabase.from('appointments').update(data).eq('id', form.dataset.procId);
     if (error) { toast('Erro ao atualizar: ' + error.message, 'err'); return; }
     toast('Atendimento atualizado!');
   }
@@ -455,7 +455,7 @@ async function handleSaveProcedure(e) {
 
 async function deleteProcedure(procId) {
   if (!confirmAction('Deseja excluir este atendimento?')) return;
-  const { error } = await supabase.from('procedures').delete().eq('id', procId);
+  const { error } = await supabase.from('appointments').delete().eq('id', procId);
   if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
   toast('Atendimento removido');
   await openDetail(selectedPatient.id);

@@ -1,15 +1,24 @@
-// js/agenda.js — Agenda do Dia page logic
+// js/agenda.js — Agenda module (complete rewrite)
 import { supabase } from './supabase.js';
 import { requireAuth, can } from './auth.js';
-import { initLayout, Icons, fmtDate, fmtDateISO, fmtCurrency, toast, confirmAction, showLoader } from './layout.js';
+import { initLayout, Icons, fmtDate, fmtDateISO, toast, showLoader } from './layout.js';
 
 let currentUser = null;
-let selectedDate = new Date();
 let activeFilter = 'all';
 let appointments = [];
+let deleteTargetId = null;
 
-const SITUATION_OPTIONS = ['Agendado', 'Paciente na recepção', 'Em atendimento', 'Finalizado', 'Faltou', 'Cancelado'];
+// Lookup caches
+let professionals = [];
+let proceduresCatalog = [];
+let insurancesList = [];
 
+const STATUS_OPTIONS = [
+  'Agendado', 'Paciente na recepção', 'Em atendimento',
+  'Finalizado', 'Faltou', 'Cancelado', 'Reagendado'
+];
+
+// ========== Init ==========
 async function init() {
   currentUser = await requireAuth();
   if (!currentUser) return;
@@ -20,21 +29,30 @@ async function init() {
   }
 
   initLayout(currentUser, 'agenda');
+  setTodayDates();
   setupEvents();
+  await loadLookups();
   await loadAgenda();
 }
 
+function setTodayDates() {
+  const today = fmtDateISO(new Date());
+  document.getElementById('date-start').value = today;
+  document.getElementById('date-end').value = today;
+}
+
 function setupEvents() {
-  // Date navigation
-  document.getElementById('btn-prev-day').addEventListener('click', () => changeDay(-1));
-  document.getElementById('btn-next-day').addEventListener('click', () => changeDay(1));
-  document.getElementById('btn-today').addEventListener('click', () => { selectedDate = new Date(); loadAgenda(); });
-  document.getElementById('date-picker').addEventListener('change', e => {
-    selectedDate = new Date(e.target.value + 'T12:00:00');
+  // Date range changes
+  document.getElementById('date-start').addEventListener('change', onDateChange);
+  document.getElementById('date-end').addEventListener('change', onDateChange);
+
+  // Today button
+  document.getElementById('btn-today').addEventListener('click', () => {
+    setTodayDates();
     loadAgenda();
   });
 
-  // Filters
+  // Status filter tabs
   document.querySelectorAll('.tab[data-filter]').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
@@ -54,131 +72,183 @@ function setupEvents() {
     }
   }
 
-  // Modal
+  // Appointment modal
   document.getElementById('ag-modal-close').addEventListener('click', closeModal);
   document.getElementById('ag-modal-cancel').addEventListener('click', closeModal);
   document.getElementById('ag-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
   document.getElementById('ag-form').addEventListener('submit', handleSave);
+
+  // Delete modal
+  document.getElementById('del-modal-close').addEventListener('click', closeDeleteModal);
+  document.getElementById('del-cancel').addEventListener('click', closeDeleteModal);
+  document.getElementById('del-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+  document.getElementById('del-confirm').addEventListener('click', confirmDelete);
 }
 
-function changeDay(delta) {
-  selectedDate.setDate(selectedDate.getDate() + delta);
+function onDateChange() {
+  const s = document.getElementById('date-start').value;
+  const e = document.getElementById('date-end').value;
+  if (s && e && s > e) {
+    toast('Data inicial não pode ser maior que data final', 'err');
+    return;
+  }
   loadAgenda();
 }
 
-function updateDateDisplay() {
-  const display = document.getElementById('date-display');
-  display.textContent = selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  display.style.textTransform = 'capitalize';
-  document.getElementById('date-picker').value = fmtDateISO(selectedDate);
+// ========== Lookup data ==========
+async function loadLookups() {
+  const [profRes, procRes, insRes] = await Promise.all([
+    supabase.from('professionals').select('id, name').order('name'),
+    supabase.from('procedures_catalog').select('id, name').order('name'),
+    supabase.from('insurances').select('id, name').order('name'),
+  ]);
+  professionals = profRes.data || [];
+  proceduresCatalog = procRes.data || [];
+  insurancesList = insRes.data || [];
 }
 
-// ---------- Load data ----------
+// ========== Load appointments ==========
 async function loadAgenda() {
-  updateDateDisplay();
   const tbody = document.getElementById('agenda-tbody');
   showLoader(tbody);
 
-  const dateStr = fmtDateISO(selectedDate);
+  const ds = document.getElementById('date-start').value;
+  const de = document.getElementById('date-end').value;
+  if (!ds || !de) return;
 
   const { data, error } = await supabase
-    .from('procedures')
-    .select('*, patients(name)')
-    .eq('date', dateStr)
-    .order('time');
+    .from('appointments')
+    .select('*, professionals(name), patients(name), procedures_catalog(name), insurances(name)')
+    .gte('appointment_date', ds)
+    .lte('appointment_date', de)
+    .order('appointment_date')
+    .order('appointment_time');
 
   if (error) {
     toast('Erro ao carregar agenda', 'err');
     console.error(error);
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty"><p>Erro ao carregar agenda</p></div></td></tr>';
     return;
   }
 
   appointments = (data || []).map(a => ({
     ...a,
-    patient_name: a.patients?.name || '—'
+    professional_name: a.professionals?.name || '—',
+    patient_name: a.patients?.name || '—',
+    procedure_name: a.procedures_catalog?.name || '—',
+    insurance_name: a.insurances?.name || '—',
   }));
 
   renderTable();
 }
 
-// ---------- Render ----------
+// ========== Render ==========
 function renderTable() {
   const role = currentUser.profile.role;
-  const canChangeSituation = can(role, 'change_situation');
+  const canChangeStatus = can(role, 'change_status');
+  const canEdit = can(role, 'edit_appointment');
+  const canDelete = can(role, 'delete_appointment');
+
+  const ds = document.getElementById('date-start').value;
+  const de = document.getElementById('date-end').value;
+  const isMultiDay = ds !== de;
+
+  // Dynamic thead
+  const thead = document.getElementById('agenda-thead');
+  const cols = isMultiDay
+    ? ['Data', 'Profissional', 'Paciente', 'Procedimento', 'Convênio', 'Hora', 'Status', 'Ações']
+    : ['Profissional', 'Paciente', 'Procedimento', 'Convênio', 'Hora', 'Status', 'Ações'];
+  thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+  const colCount = cols.length;
 
   const tbody = document.getElementById('agenda-tbody');
 
-  // Filter
+  // Filter by status
   let filtered = appointments;
   if (activeFilter !== 'all') {
-    const filterMap = {
-      agendados: a => a.situation === 'Agendado',
-      recepcao: a => a.situation === 'Paciente na recepção',
-      atendimento: a => a.situation === 'Em atendimento',
-      finalizados: a => a.situation === 'Finalizado',
-      faltou: a => a.situation === 'Faltou',
-      cancelados: a => a.situation === 'Cancelado',
+    const map = {
+      agendados: 'Agendado',
+      recepcao: 'Paciente na recepção',
+      atendimento: 'Em atendimento',
+      finalizados: 'Finalizado',
+      faltou: 'Faltou',
+      cancelados: 'Cancelado',
+      reagendados: 'Reagendado',
     };
-    const fn = filterMap[activeFilter];
-    if (fn) filtered = appointments.filter(fn);
+    const target = map[activeFilter];
+    if (target) filtered = appointments.filter(a => a.status === target);
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhum atendimento${activeFilter !== 'all' ? ' com este filtro' : ' para este dia'}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colCount}"><div class="empty"><p>Nenhum agendamento encontrado para o período selecionado</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(a => `
     <tr data-id="${a.id}">
-      <td>${a.professional || '—'}</td>
+      ${isMultiDay ? `<td>${fmtDate(a.appointment_date)}</td>` : ''}
+      <td>${a.professional_name}</td>
       <td>${a.patient_name}</td>
-      <td>${a.procedure_name || '—'}</td>
-      <td>${a.insurance || 'Particular'}</td>
-      <td>${a.time || '—'}</td>
+      <td>${a.procedure_name}</td>
+      <td>${a.insurance_name}</td>
+      <td>${a.appointment_time || '—'}</td>
       <td>
-        ${canChangeSituation
-          ? `<select class="inline-select" data-field="situation" data-id="${a.id}">
-              ${SITUATION_OPTIONS.map(o => `<option ${a.situation === o ? 'selected' : ''}>${o}</option>`).join('')}
+        ${canChangeStatus
+          ? `<select class="inline-select" data-field="status" data-id="${a.id}">
+              ${STATUS_OPTIONS.map(o => `<option ${a.status === o ? 'selected' : ''}>${o}</option>`).join('')}
             </select>`
-          : `<span class="badge ${situationBadge(a.situation)}">${a.situation || '—'}</span>`
+          : `<span class="badge ${statusBadge(a.status)}">${a.status || '—'}</span>`
         }
+      </td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${canEdit ? `<button class="btn-icon" title="Editar" data-action="edit" data-id="${a.id}">${Icons.edit}</button>` : ''}
+          ${canDelete ? `<button class="btn-icon danger" title="Excluir" data-action="delete" data-id="${a.id}">${Icons.trash}</button>` : ''}
+        </div>
       </td>
     </tr>
   `).join('');
 
-  // Inline status/situation change
+  // Inline status change
   tbody.querySelectorAll('.inline-select').forEach(sel => {
-    const originalValue = sel.value;
+    const orig = sel.value;
     sel.addEventListener('change', async () => {
-      const field = sel.dataset.field;
       const id = sel.dataset.id;
-      const newValue = sel.value;
-
+      const val = sel.value;
       const { error } = await supabase
-        .from('procedures')
-        .update({ [field]: newValue, updated_at: new Date().toISOString() })
+        .from('appointments')
+        .update({ status: val, updated_at: new Date().toISOString() })
         .eq('id', id);
-
       if (error) {
-        toast(`Erro ao alterar ${field}: ${error.message}`, 'err');
-        sel.value = originalValue; // Restore
+        toast('Erro ao alterar status: ' + error.message, 'err');
+        sel.value = orig;
         return;
       }
-
-      // Update local data
-      const appt = appointments.find(a => a.id === id);
-      if (appt) appt[field] = newValue;
-
+      const appt = appointments.find(x => x.id === id);
+      if (appt) appt.status = val;
       toast('Status atualizado!');
+    });
+  });
+
+  // Action buttons
+  tbody.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if (btn.dataset.action === 'edit') openModal('edit', id);
+      else if (btn.dataset.action === 'delete') openDeleteModal(id);
     });
   });
 }
 
-function situationBadge(s) {
-  return { 'Finalizado': 'badge-green', 'Em atendimento': 'badge-purple', 'Paciente na recepção': 'badge-orange', 'Faltou': 'badge-red', 'Cancelado': 'badge-gray', 'Agendado': 'badge-blue' }[s] || 'badge-gray';
+function statusBadge(s) {
+  return {
+    'Agendado': 'badge-blue', 'Paciente na recepção': 'badge-orange',
+    'Em atendimento': 'badge-purple', 'Finalizado': 'badge-green',
+    'Faltou': 'badge-red', 'Cancelado': 'badge-gray', 'Reagendado': 'badge-blue',
+  }[s] || 'badge-gray';
 }
 
-// ---------- Modal ----------
+// ========== Appointment Modal ==========
 async function openModal(mode, id = null) {
   const overlay = document.getElementById('ag-overlay');
   const title = document.getElementById('ag-modal-title');
@@ -187,38 +257,45 @@ async function openModal(mode, id = null) {
   form.dataset.mode = mode;
   form.dataset.apptId = id || '';
 
-  // Load patients for dropdown
-  const patientSelect = form.querySelector('[name="patient_id"]');
-  if (patientSelect.options.length <= 1) {
-    const { data: pts } = await supabase.from('patients').select('id, name').order('name');
-    (pts || []).forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name;
-      patientSelect.appendChild(opt);
-    });
-  }
+  // Populate selects from lookup cache
+  fillSelect(form.querySelector('[name="professional_id"]'), professionals);
+  fillSelect(form.querySelector('[name="procedure_id"]'), proceduresCatalog);
+  fillSelect(form.querySelector('[name="insurance_id"]'), insurancesList);
+
+  // Patients — load fresh
+  const patSel = form.querySelector('[name="patient_id"]');
+  const { data: pts } = await supabase.from('patients').select('id, name').order('name');
+  fillSelect(patSel, pts || []);
 
   if (mode === 'edit' && id) {
     title.textContent = 'Editar Agendamento';
     const a = appointments.find(x => x.id === id);
     if (a) {
-      patientSelect.value = a.patient_id || '';
-      form.querySelector('[name="professional"]').value = a.professional || '';
-      form.querySelector('[name="procedure_name"]').value = a.procedure_name || '';
-      form.querySelector('[name="date"]').value = a.date || '';
-      form.querySelector('[name="time"]').value = a.time || '';
-      form.querySelector('[name="insurance"]').value = a.insurance || '';
-      form.querySelector('[name="value"]').value = a.value || '';
-      form.querySelector('[name="situation"]').value = a.situation || 'Agendado';
+      form.querySelector('[name="professional_id"]').value = a.professional_id || '';
+      patSel.value = a.patient_id || '';
+      form.querySelector('[name="procedure_id"]').value = a.procedure_id || '';
+      form.querySelector('[name="insurance_id"]').value = a.insurance_id || '';
+      form.querySelector('[name="appointment_date"]').value = a.appointment_date || '';
+      form.querySelector('[name="appointment_time"]').value = a.appointment_time || '';
+      form.querySelector('[name="status"]').value = a.status || 'Agendado';
       form.querySelector('[name="notes"]').value = a.notes || '';
     }
   } else {
     title.textContent = 'Novo Agendamento';
-    form.querySelector('[name="date"]').value = fmtDateISO(selectedDate);
+    form.querySelector('[name="appointment_date"]').value = fmtDateISO(new Date());
   }
 
   overlay.classList.add('open');
+}
+
+function fillSelect(sel, items) {
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  items.forEach(i => {
+    const opt = document.createElement('option');
+    opt.value = i.id;
+    opt.textContent = i.name;
+    sel.appendChild(opt);
+  });
 }
 
 function closeModal() {
@@ -229,47 +306,62 @@ async function handleSave(e) {
   e.preventDefault();
   const form = e.target;
   const fd = new FormData(form);
+
   const data = {
-    patient_id: fd.get('patient_id'),
-    professional: fd.get('professional'),
-    procedure_name: fd.get('procedure_name'),
-    date: fd.get('date') || null,
-    time: fd.get('time') || null,
-    insurance: fd.get('insurance'),
-    value: parseFloat(fd.get('value')) || 0,
-    situation: fd.get('situation'),
+    professional_id: fd.get('professional_id') || null,
+    patient_id: fd.get('patient_id') || null,
+    procedure_id: fd.get('procedure_id') || null,
+    insurance_id: fd.get('insurance_id') || null,
+    appointment_date: fd.get('appointment_date'),
+    appointment_time: fd.get('appointment_time'),
+    status: fd.get('status'),
     notes: fd.get('notes'),
   };
 
+  // Validations
+  if (!data.professional_id) { toast('Selecione um profissional', 'err'); return; }
   if (!data.patient_id) { toast('Selecione um paciente', 'err'); return; }
-  if (!data.procedure_name) { toast('Procedimento é obrigatório', 'err'); return; }
+  if (!data.procedure_id) { toast('Selecione um procedimento', 'err'); return; }
+  if (!data.insurance_id) { toast('Selecione um convênio', 'err'); return; }
+  if (!data.appointment_date) { toast('Data é obrigatória', 'err'); return; }
+  if (!data.appointment_time) { toast('Hora é obrigatória', 'err'); return; }
 
   if (form.dataset.mode === 'create') {
-    const { error } = await supabase.from('procedures').insert([data]);
-    if (error) { toast('Erro: ' + error.message, 'err'); return; }
-    toast('Agendamento criado!');
+    const { error } = await supabase.from('appointments').insert([data]);
+    if (error) { toast('Erro ao criar: ' + error.message, 'err'); return; }
+    toast('Agendamento criado com sucesso!');
   } else {
     data.updated_at = new Date().toISOString();
-    const { error } = await supabase.from('procedures').update(data).eq('id', form.dataset.apptId);
-    if (error) { toast('Erro: ' + error.message, 'err'); return; }
-    toast('Agendamento atualizado!');
+    const { error } = await supabase.from('appointments').update(data).eq('id', form.dataset.apptId);
+    if (error) { toast('Erro ao atualizar: ' + error.message, 'err'); return; }
+    toast('Agendamento atualizado com sucesso!');
   }
 
   closeModal();
   await loadAgenda();
 }
 
-async function cancelAppointment(id) {
-  if (!confirmAction('Deseja cancelar este agendamento?')) return;
+// ========== Delete Modal ==========
+function openDeleteModal(id) {
+  deleteTargetId = id;
+  document.getElementById('del-overlay').classList.add('open');
+}
 
-  const { error } = await supabase
-    .from('procedures')
-    .update({ situation: 'Cancelado', updated_at: new Date().toISOString() })
-    .eq('id', id);
+function closeDeleteModal() {
+  deleteTargetId = null;
+  document.getElementById('del-overlay').classList.remove('open');
+}
 
-  if (error) { toast('Erro: ' + error.message, 'err'); return; }
-  toast('Agendamento cancelado');
-  await loadAgenda();
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  const { error } = await supabase.from('appointments').delete().eq('id', deleteTargetId);
+  if (error) {
+    toast('Erro ao excluir: ' + error.message, 'err');
+  } else {
+    toast('Agendamento excluído com sucesso!');
+    await loadAgenda();
+  }
+  closeDeleteModal();
 }
 
 // Init

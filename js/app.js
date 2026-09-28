@@ -37,16 +37,16 @@ async function loadDashboard() {
 
     // Today's appointments
     const { count: todayCount } = await supabase
-      .from('procedures')
+      .from('appointments')
       .select('*', { count: 'exact', head: true })
-      .eq('date', today);
+      .eq('appointment_date', today);
 
     // Month appointments
     const { count: monthCount } = await supabase
-      .from('procedures')
+      .from('appointments')
       .select('*', { count: 'exact', head: true })
-      .gte('date', monthStart)
-      .lte('date', today);
+      .gte('appointment_date', monthStart)
+      .lte('appointment_date', today);
 
     // Active patients
     const { count: patientCount } = await supabase
@@ -55,10 +55,10 @@ async function loadDashboard() {
 
     // Waiting room count
     const { count: waitingCount } = await supabase
-      .from('procedures')
+      .from('appointments')
       .select('*', { count: 'exact', head: true })
-      .eq('date', today)
-      .eq('situation', 'Paciente na recepção');
+      .eq('appointment_date', today)
+      .eq('status', 'Paciente na recepção');
 
     let financialHTML = '';
     let chartsHTML = '';
@@ -67,18 +67,18 @@ async function loadDashboard() {
     if (can(role, 'financial_indicators')) {
       // Today revenue
       const { data: todayProcs } = await supabase
-        .from('procedures')
+        .from('appointments')
         .select('value')
-        .eq('date', today)
+        .eq('appointment_date', today)
         .eq('paid', true);
       const todayRevenue = (todayProcs || []).reduce((s, p) => s + (p.value || 0), 0);
 
       // Month revenue
       const { data: monthProcs } = await supabase
-        .from('procedures')
+        .from('appointments')
         .select('value')
-        .gte('date', monthStart)
-        .lte('date', today)
+        .gte('appointment_date', monthStart)
+        .lte('appointment_date', today)
         .eq('paid', true);
       const monthRevenue = (monthProcs || []).reduce((s, p) => s + (p.value || 0), 0);
 
@@ -218,9 +218,9 @@ function buildChartsSection() {
 
 async function loadCharts(startDate, endDate) {
   try {
-    let query = supabase.from('procedures').select('date, value, procedure_name, paid').eq('paid', true);
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
+    let query = supabase.from('appointments').select('appointment_date, value, procedures_catalog(name), paid').eq('paid', true);
+    if (startDate) query = query.gte('appointment_date', startDate);
+    if (endDate) query = query.lte('appointment_date', endDate);
 
     const { data: procs, error } = await query;
     if (error) throw error;
@@ -264,7 +264,7 @@ function renderDailyChart(procs) {
     d.setDate(d.getDate() - i);
     const key = fmtDateISO(d);
     const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const total = procs.filter(p => p.date === key).reduce((s, p) => s + (p.value || 0), 0);
+    const total = procs.filter(p => p.appointment_date === key).reduce((s, p) => s + (p.value || 0), 0);
     days.push({ label, total });
   }
 
@@ -293,7 +293,7 @@ function renderMonthlyChart(procs) {
   const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   procs.forEach(p => {
-    const m = p.date?.slice(0, 7); // YYYY-MM
+    const m = p.appointment_date?.slice(0, 7); // YYYY-MM
     if (m) months[m] = (months[m] || 0) + (p.value || 0);
   });
 
@@ -329,7 +329,7 @@ function renderProcedureChart(procs) {
 
   const groups = {};
   procs.forEach(p => {
-    const name = p.procedure_name || 'Outros';
+    const name = p.procedures_catalog?.name || 'Outros';
     groups[name] = (groups[name] || 0) + (p.value || 0);
   });
 
