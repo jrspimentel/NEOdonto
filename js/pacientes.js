@@ -349,7 +349,7 @@ function renderDetailContent(tab) {
           <div class="tl-doc">${h.professional || '—'}</div>
           <div class="tl-meta">
             <span>Convênio: ${h.insurance || 'Particular'}</span>
-            <span>Situação: ${h.situation || '—'}</span>
+            <span>Status: ${h.situation || '—'}</span>
           </div>
           ${h.notes ? `<div class="tl-notes">${h.notes}</div>` : ''}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
