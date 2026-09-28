@@ -25,9 +25,9 @@ async function init() {
   initLayout(currentUser, 'agenda');
   setTodayDates();
   setupEvents();
-  await loadLookups();
+  try { await loadLookups(); } catch(e) { console.warn('Lookups failed:', e); }
   await loadAgenda();
-  setupRealtime();
+  try { setupRealtime(); } catch(e) { console.warn('Realtime setup failed:', e); }
 }
 
 function setTodayDates() {
@@ -112,14 +112,18 @@ function setupRealtime() {
 
 // ========== Lookups ==========
 async function loadLookups() {
-  const [profRes, procRes, insRes] = await Promise.all([
-    supabase.from('professionals').select('id, name').order('name'),
-    supabase.from('procedures_catalog').select('id, name, default_value').order('name'),
-    supabase.from('insurances').select('id, name').order('name'),
-  ]);
-  professionals = profRes.data || [];
-  proceduresCatalog = procRes.data || [];
-  insurancesList = insRes.data || [];
+  try {
+    const [profRes, procRes, insRes] = await Promise.all([
+      supabase.from('professionals').select('id, name').order('name'),
+      supabase.from('procedures_catalog').select('id, name, default_value').order('name'),
+      supabase.from('insurances').select('id, name').order('name'),
+    ]);
+    professionals = profRes.data || [];
+    proceduresCatalog = procRes.data || [];
+    insurancesList = insRes.data || [];
+  } catch(e) {
+    console.warn('Failed to load lookups:', e);
+  }
 }
 
 // ========== Load ==========
@@ -138,7 +142,12 @@ async function loadAgenda() {
     .gte('appointment_date', ds).lte('appointment_date', de)
     .order('appointment_date').order('appointment_time');
 
-  if (error) { toast('Erro ao carregar agenda', 'err'); console.error(error); return; }
+  if (error) {
+    toast('Erro ao carregar agenda: ' + error.message, 'err');
+    console.error('Agenda load error:', error);
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><p>Erro: ${error.message}</p></div></td></tr>`;
+    return;
+  }
 
   // Load payment summaries for these appointments
   const ids = (data || []).map(a => a.id);

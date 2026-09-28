@@ -14,11 +14,15 @@ async function init() {
   await loadWaitingRoom();
 
   // Realtime — auto-refresh when appointments change
-  supabase.channel('wr-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-      loadWaitingRoom();
-    })
-    .subscribe();
+  try {
+    supabase.channel('wr-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        loadWaitingRoom();
+      })
+      .subscribe();
+  } catch(e) {
+    console.warn('Realtime setup failed:', e);
+  }
 }
 
 async function loadWaitingRoom() {

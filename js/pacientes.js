@@ -25,19 +25,23 @@ async function init() {
 
   initLayout(currentUser, 'patients');
   setupEvents();
-  await loadLookups();
+  try { await loadLookups(); } catch(e) { console.warn('Lookups failed:', e); }
   await loadPatients();
 }
 
 async function loadLookups() {
-  const [profRes, procRes, insRes] = await Promise.all([
-    supabase.from('professionals').select('id, name').order('name'),
-    supabase.from('procedures_catalog').select('id, name, default_value').order('name'),
-    supabase.from('insurances').select('id, name').order('name'),
-  ]);
-  professionals = profRes.data || [];
-  proceduresCatalog = procRes.data || [];
-  insurancesList = insRes.data || [];
+  try {
+    const [profRes, procRes, insRes] = await Promise.all([
+      supabase.from('professionals').select('id, name').order('name'),
+      supabase.from('procedures_catalog').select('id, name, default_value').order('name'),
+      supabase.from('insurances').select('id, name').order('name'),
+    ]);
+    professionals = profRes.data || [];
+    proceduresCatalog = procRes.data || [];
+    insurancesList = insRes.data || [];
+  } catch(e) {
+    console.warn('Failed to load lookups:', e);
+  }
 }
 
 function setupEvents() {
@@ -215,20 +219,32 @@ async function openDetail(id) {
   if (!selectedPatient) return;
 
   // Load appointment history
-  const { data: history } = await supabase
-    .from('appointments')
-    .select('*, professionals(name), procedures_catalog(name), insurances(name)')
-    .eq('patient_id', id)
-    .order('appointment_date', { ascending: false });
-  selectedHistory = history || [];
+  try {
+    const { data: history, error } = await supabase
+      .from('appointments')
+      .select('*, professionals(name), procedures_catalog(name), insurances(name)')
+      .eq('patient_id', id)
+      .order('appointment_date', { ascending: false });
+    if (error) console.warn('History load error:', error);
+    selectedHistory = history || [];
+  } catch(e) {
+    console.warn('History query failed:', e);
+    selectedHistory = [];
+  }
 
   // Load payment history
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('*, appointments(appointment_date, procedure_id, procedures_catalog(name))')
-    .eq('patient_id', id)
-    .order('created_at', { ascending: false });
-  selectedPayments = payments || [];
+  try {
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*, appointments(appointment_date, procedure_id, procedures_catalog(name))')
+      .eq('patient_id', id)
+      .order('created_at', { ascending: false });
+    if (error) console.warn('Payments load error:', error);
+    selectedPayments = payments || [];
+  } catch(e) {
+    console.warn('Payments query failed:', e);
+    selectedPayments = [];
+  }
 
   const p = selectedPatient;
   document.getElementById('dp-avatar').style.background = avatarColor(p.name);
