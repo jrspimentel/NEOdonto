@@ -104,7 +104,7 @@ const PERMISSIONS = {
   edit_appointment:      ['admin', 'recepcionista'],
   cancel_appointment:    ['admin', 'recepcionista'],
   change_status:         ['admin', 'dentista', 'recepcionista'],
-  change_situation:      ['admin', 'dentista', 'recepcionista'],
+  change_situation:      ['admin', 'recepcionista'],
   waiting_room:          ['admin', 'dentista', 'recepcionista', 'auxiliar'],
   manage_users:          ['admin'],
   settings:              ['admin'],
