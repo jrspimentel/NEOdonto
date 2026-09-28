@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="description" content="NEOdonto — Cadastro e gestão de pacientes"/>
+  <title>NEOdonto — Pacientes</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+  <div class="app">
+    <button class="mobile-toggle" id="mobile-toggle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h2>Pacientes</h2>
+          <p>Cadastro e gestão de pacientes</p>
+        </div>
+      </header>
+
+      <div class="page">
+        <!-- Filters -->
+        <div class="filters-row">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input" placeholder="Buscar por nome, CPF, email ou telefone..."/>
+          </div>
+          <button class="btn btn-p" id="btn-new-patient">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Novo Paciente
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>CPF</th>
+                  <th>Telefone</th>
+                  <th>Nascimento</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="patients-table-body">
+                <tr><td colspan="5"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Patient Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">Novo Paciente</h3>
+        <button class="btn-icon" id="modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="patient-form">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Nome Completo *</label>
+              <input type="text" name="name" placeholder="Nome completo do paciente" required/>
+            </div>
+            <div class="form-group">
+              <label>CPF</label>
+              <input type="text" name="cpf" placeholder="000.000.000-00"/>
+            </div>
+            <div class="form-group">
+              <label>Data de Nascimento</label>
+              <input type="date" name="birth_date"/>
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" name="phone" placeholder="(00) 00000-0000"/>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input type="checkbox" name="is_whatsapp" id="chk-whats"/>
+                <label for="chk-whats">WhatsApp</label>
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>E-mail</label>
+              <input type="email" name="email" placeholder="email@exemplo.com"/>
+            </div>
+            <div class="form-group full">
+              <label>Endereço</label>
+              <input type="text" name="address" placeholder="Rua, número, bairro, cidade — UF"/>
+            </div>
+            <div class="form-group full">
+              <label>Responsável Legal</label>
+              <input type="text" name="legal_guardian_name" placeholder="Nome do responsável (se menor)"/>
+            </div>
+            <div class="form-group full">
+              <label>Observações</label>
+              <textarea name="notes" placeholder="Alergias, condições especiais..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Patient Detail Panel -->
+  <div class="detail-bg" id="detail-bg"></div>
+  <div class="detail-panel" id="detail-panel">
+    <div class="dp-header">
+      <button class="btn-icon" id="detail-close" style="margin-top:2px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="dp-info">
+        <div class="dp-avatar" id="dp-avatar">MS</div>
+        <h3 id="dp-name">Paciente</h3>
+      </div>
+      <button class="btn btn-p btn-sm" id="btn-new-procedure" style="margin-left:auto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Atendimento
+      </button>
+    </div>
+    <div class="dp-tabs">
+      <button class="dp-tab active" data-tab="info">Informações</button>
+      <button class="dp-tab" data-tab="history">Histórico</button>
+    </div>
+    <div class="dp-content" id="dp-content"></div>
+  </div>
+
+  <!-- Procedure Modal -->
+  <div class="modal-overlay" id="proc-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="proc-modal-title">Novo Atendimento</h3>
+        <button class="btn-icon" id="proc-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="proc-form">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Profissional</label>
+              <input type="text" name="professional" placeholder="Nome do dentista"/>
+            </div>
+            <div class="form-group">
+              <label>Procedimento *</label>
+              <input type="text" name="procedure_name" placeholder="Ex: Limpeza Dental" required/>
+            </div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="date" name="date"/>
+            </div>
+            <div class="form-group">
+              <label>Hora</label>
+              <input type="time" name="time"/>
+            </div>
+            <div class="form-group">
+              <label>Convênio</label>
+              <input type="text" name="insurance" placeholder="Particular"/>
+            </div>
+            <div class="form-group">
+              <label>Valor (R$)</label>
+              <input type="number" name="value" step="0.01" placeholder="0,00"/>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input type="checkbox" name="paid" id="chk-paid"/>
+                <label for="chk-paid">Pago</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Data do Pagamento</label>
+              <input type="date" name="payment_date"/>
+            </div>
+            <div class="form-group">
+              <label>Forma de Pagamento</label>
+              <select name="payment_method">
+                <option value="">—</option>
+                <option>Dinheiro</option>
+                <option>PIX</option>
+                <option>Cartão Débito</option>
+                <option>Cartão Crédito</option>
+                <option>Convênio</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select name="status">
+                <option>Agendado</option>
+                <option>Realizado</option>
+                <option>Faltou</option>
+                <option>Cancelado</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Situação</label>
+              <select name="situation">
+                <option>Agendado</option>
+                <option>Paciente na recepção</option>
+                <option>Em atendimento</option>
+                <option>Finalizado</option>
+                <option>Cancelado</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Observações</label>
+              <textarea name="notes" placeholder="Notas do atendimento..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="proc-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap"></div>
+
+  <script type="module" src="../js/pacientes.js"></script>
+
+</body>
+</html>

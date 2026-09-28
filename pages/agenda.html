@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="description" content="NEOdonto — Agenda do dia"/>
+  <title>NEOdonto — Agenda do Dia</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+  <div class="app">
+    <button class="mobile-toggle" id="mobile-toggle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h2>Agenda do Dia</h2>
+          <p>Acompanhe os atendimentos do dia</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-p btn-sm" id="btn-new-appointment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Agendamento
+          </button>
+        </div>
+      </header>
+
+      <div class="page">
+        <!-- Date Navigation -->
+        <div class="filters-row" style="justify-content:space-between">
+          <div class="date-nav">
+            <button id="btn-prev-day" title="Dia anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="date-display" id="date-display">—</span>
+            <button id="btn-next-day" title="Próximo dia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <input type="date" id="date-picker"/>
+            <button class="btn btn-s btn-sm" id="btn-today">Hoje</button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="tabs" style="margin-bottom:18px">
+          <button class="tab active" data-filter="all">Todos</button>
+          <button class="tab" data-filter="agendados">Agendados</button>
+          <button class="tab" data-filter="recepcao">Recepção</button>
+          <button class="tab" data-filter="atendimento">Em atendimento</button>
+          <button class="tab" data-filter="realizados">Realizados</button>
+          <button class="tab" data-filter="faltou">Faltou</button>
+          <button class="tab" data-filter="cancelados">Cancelados</button>
+        </div>
+
+        <!-- Agenda Table -->
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Profissional</th>
+                  <th>Paciente</th>
+                  <th>Procedimento</th>
+                  <th>Convênio</th>
+                  <th>Hora</th>
+                  <th>Status</th>
+                  <th>Situação</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="agenda-tbody">
+                <tr><td colspan="8"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Appointment Modal -->
+  <div class="modal-overlay" id="ag-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="ag-modal-title">Novo Agendamento</h3>
+        <button class="btn-icon" id="ag-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="ag-form">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Paciente *</label>
+              <select name="patient_id" required>
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Profissional</label>
+              <input type="text" name="professional" placeholder="Nome do dentista"/>
+            </div>
+            <div class="form-group">
+              <label>Procedimento *</label>
+              <input type="text" name="procedure_name" placeholder="Ex: Limpeza Dental" required/>
+            </div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="date" name="date"/>
+            </div>
+            <div class="form-group">
+              <label>Hora</label>
+              <input type="time" name="time"/>
+            </div>
+            <div class="form-group">
+              <label>Convênio</label>
+              <input type="text" name="insurance" placeholder="Particular"/>
+            </div>
+            <div class="form-group">
+              <label>Valor (R$)</label>
+              <input type="number" name="value" step="0.01" placeholder="0,00"/>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select name="status">
+                <option>Agendado</option>
+                <option>Realizado</option>
+                <option>Faltou</option>
+                <option>Cancelado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Situação</label>
+              <select name="situation">
+                <option>Agendado</option>
+                <option>Paciente na recepção</option>
+                <option>Em atendimento</option>
+                <option>Finalizado</option>
+                <option>Cancelado</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Observações</label>
+              <textarea name="notes" placeholder="Notas..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="ag-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap"></div>
+
+  <script type="module" src="../js/agenda.js"></script>
+
+</body>
+</html>

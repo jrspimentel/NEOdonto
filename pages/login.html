@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="description" content="NEOdonto — Login do sistema de gestão odontológica"/>
+  <title>NEOdonto — Login</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+  <div class="login-page">
+    <div class="login-card">
+      <div class="logo">
+        <div class="logo-icon">N</div>
+        <h1>NEOdonto</h1>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">E-mail</label>
+          <input type="email" id="login-email" name="email" placeholder="seu@email.com" required autofocus/>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Senha</label>
+          <input type="password" id="login-password" name="password" placeholder="••••••••" required/>
+        </div>
+        <button type="submit" class="btn btn-p" id="login-btn">Entrar</button>
+        <div class="login-error" id="login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap"></div>
+
+  <script type="module">
+    import { supabase } from '../js/supabase.js';
+    import { signIn, getCurrentUser } from '../js/auth.js';
+
+    // If already logged in, redirect
+    (async () => {
+      const user = await getCurrentUser();
+      if (user) window.location.href = '../index.html';
+    })();
+
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      const email = form.email.value.trim();
+      const password = form.password.value;
+
+      try {
+        await signIn(email, password);
+        window.location.href = '../index.html';
+      } catch (err) {
+        errorEl.textContent = 'E-mail ou senha inválidos';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
+      }
+    });
+  </script>
+
+</body>
+</html>
