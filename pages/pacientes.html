@@ -141,6 +141,7 @@
     <div class="dp-tabs">
       <button class="dp-tab active" data-tab="info">Informações</button>
       <button class="dp-tab" data-tab="history">Histórico</button>
+      <button class="dp-tab" data-tab="financial">Financeiro</button>
     </div>
     <div class="dp-content" id="dp-content"></div>
   </div>
@@ -158,59 +159,34 @@
         <div class="modal-body">
           <div class="form-grid">
             <div class="form-group">
-              <label>Profissional</label>
-              <input type="text" name="professional" placeholder="Nome do dentista"/>
+              <label>Profissional *</label>
+              <select name="professional_id" required><option value="">Selecione...</option></select>
             </div>
             <div class="form-group">
               <label>Procedimento *</label>
-              <input type="text" name="procedure_name" placeholder="Ex: Limpeza Dental" required/>
+              <select name="procedure_id" required><option value="">Selecione...</option></select>
             </div>
             <div class="form-group">
-              <label>Data</label>
-              <input type="date" name="date"/>
+              <label>Data *</label>
+              <input type="date" name="appointment_date" required/>
             </div>
             <div class="form-group">
-              <label>Hora</label>
-              <input type="time" name="time"/>
+              <label>Hora *</label>
+              <input type="time" name="appointment_time" required/>
             </div>
             <div class="form-group">
-              <label>Convênio</label>
-              <input type="text" name="insurance" placeholder="Particular"/>
+              <label>Convênio *</label>
+              <select name="insurance_id" required><option value="">Selecione...</option></select>
             </div>
             <div class="form-group">
               <label>Valor (R$)</label>
               <input type="number" name="value" step="0.01" placeholder="0,00"/>
             </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input type="checkbox" name="paid" id="chk-paid"/>
-                <label for="chk-paid">Pago</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Data do Pagamento</label>
-              <input type="date" name="payment_date"/>
-            </div>
-            <div class="form-group">
-              <label>Forma de Pagamento</label>
-              <select name="payment_method">
-                <option value="">—</option>
-                <option>Dinheiro</option>
-                <option>PIX</option>
-                <option>Cartão Débito</option>
-                <option>Cartão Crédito</option>
-                <option>Convênio</option>
-              </select>
-            </div>
             <div class="form-group full">
               <label>Status</label>
-              <select name="situation">
-                <option>Agendado</option>
-                <option>Paciente na recepção</option>
-                <option>Em atendimento</option>
-                <option>Finalizado</option>
-                <option>Faltou</option>
-                <option>Cancelado</option>
+              <select name="status">
+                <option>Agendado</option><option>Paciente na recepção</option><option>Em atendimento</option>
+                <option>Finalizado</option><option>Faltou</option><option>Cancelado</option><option>Reagendado</option>
               </select>
             </div>
             <div class="form-group full">

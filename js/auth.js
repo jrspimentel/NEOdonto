@@ -89,7 +89,7 @@ export async function signOut() {
  */
 const PERMISSIONS = {
   dashboard:             ['admin', 'dentista', 'recepcionista'],
-  financial_indicators:  ['admin'],
+  financial_indicators:  ['admin', 'recepcionista'],
   financial_charts:      ['admin'],
   view_patients:         ['admin', 'dentista', 'recepcionista', 'auxiliar'],
   create_patient:        ['admin', 'dentista', 'recepcionista'],
@@ -105,6 +105,12 @@ const PERMISSIONS = {
   delete_appointment:    ['admin'],
   change_status:         ['admin', 'recepcionista'],
   waiting_room:          ['admin', 'dentista', 'recepcionista', 'auxiliar'],
+  // Payment permissions
+  view_payments:         ['admin', 'recepcionista'],
+  create_payment:        ['admin', 'recepcionista'],
+  edit_payment:          ['admin', 'recepcionista'],
+  cancel_payment:        ['admin'],
+  delete_payment:        ['admin'],
   manage_users:          ['admin'],
   settings:              ['admin'],
 };

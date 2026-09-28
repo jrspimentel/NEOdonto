@@ -14,7 +14,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
     <aside class="sidebar" id="sidebar"></aside>
 
     <main class="main">
@@ -32,7 +31,7 @@
       </header>
 
       <div class="page">
-        <!-- Date Range Filter -->
+        <!-- Date Range -->
         <div class="filters-row" style="gap:12px;align-items:center;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px">
             <input type="date" id="date-start" class="input-date"/>
@@ -42,7 +41,7 @@
           <button class="btn btn-s btn-sm" id="btn-today">Hoje</button>
         </div>
 
-        <!-- Status Filters -->
+        <!-- Status Tabs -->
         <div class="tabs" style="margin-bottom:18px">
           <button class="tab active" data-filter="all">Todos</button>
           <button class="tab" data-filter="agendados">Agendados</button>
@@ -54,24 +53,12 @@
           <button class="tab" data-filter="reagendados">Reagendados</button>
         </div>
 
-        <!-- Agenda Table -->
+        <!-- Table -->
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead id="agenda-thead">
-                <tr>
-                  <th>Profissional</th>
-                  <th>Paciente</th>
-                  <th>Procedimento</th>
-                  <th>Convênio</th>
-                  <th>Hora</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="agenda-tbody">
-                <tr><td colspan="7"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr>
-              </tbody>
+              <thead id="agenda-thead"><tr><th>Profissional</th><th>Paciente</th><th>Procedimento</th><th>Convênio</th><th>Hora</th><th>Status</th><th>Pgto</th><th>Ações</th></tr></thead>
+              <tbody id="agenda-tbody"><tr><td colspan="8"><div class="page-loader"><span class="spinner"></span> Carregando...</div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -84,61 +71,23 @@
     <div class="modal">
       <div class="modal-head">
         <h3 id="ag-modal-title">Novo Agendamento</h3>
-        <button class="btn-icon" id="ag-modal-close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="btn-icon" id="ag-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <form id="ag-form">
         <div class="modal-body">
           <div class="form-grid">
+            <div class="form-group"><label>Profissional *</label><select name="professional_id" required><option value="">Selecione...</option></select></div>
+            <div class="form-group"><label>Paciente *</label><select name="patient_id" required><option value="">Selecione...</option></select></div>
+            <div class="form-group"><label>Procedimento *</label><select name="procedure_id" required><option value="">Selecione...</option></select></div>
+            <div class="form-group"><label>Convênio *</label><select name="insurance_id" required><option value="">Selecione...</option></select></div>
+            <div class="form-group"><label>Data *</label><input type="date" name="appointment_date" required/></div>
+            <div class="form-group"><label>Hora *</label><input type="time" name="appointment_time" required/></div>
+            <div class="form-group"><label>Valor (R$)</label><input type="number" name="value" step="0.01" placeholder="0,00"/></div>
             <div class="form-group">
-              <label>Profissional *</label>
-              <select name="professional_id" required>
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Paciente *</label>
-              <select name="patient_id" required>
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Procedimento *</label>
-              <select name="procedure_id" required>
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Convênio *</label>
-              <select name="insurance_id" required>
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Data *</label>
-              <input type="date" name="appointment_date" required/>
-            </div>
-            <div class="form-group">
-              <label>Hora *</label>
-              <input type="time" name="appointment_time" required/>
-            </div>
-            <div class="form-group full">
               <label>Status</label>
-              <select name="status">
-                <option>Agendado</option>
-                <option>Paciente na recepção</option>
-                <option>Em atendimento</option>
-                <option>Finalizado</option>
-                <option>Faltou</option>
-                <option>Cancelado</option>
-                <option>Reagendado</option>
-              </select>
+              <select name="status"><option>Agendado</option><option>Paciente na recepção</option><option>Em atendimento</option><option>Finalizado</option><option>Faltou</option><option>Cancelado</option><option>Reagendado</option></select>
             </div>
-            <div class="form-group full">
-              <label>Observações</label>
-              <textarea name="notes" placeholder="Notas..."></textarea>
-            </div>
+            <div class="form-group full"><label>Observações</label><textarea name="notes" placeholder="Notas..."></textarea></div>
           </div>
         </div>
         <div class="modal-foot">
@@ -149,22 +98,42 @@
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal -->
+  <!-- Delete Confirmation -->
   <div class="modal-overlay" id="del-overlay">
     <div class="modal" style="max-width:420px">
-      <div class="modal-head">
-        <h3>Confirmar Exclusão</h3>
-        <button class="btn-icon" id="del-modal-close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p>Deseja realmente excluir este agendamento?</p>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="btn btn-s" id="del-cancel">Cancelar</button>
-        <button type="button" class="btn btn-d" id="del-confirm">Excluir</button>
-      </div>
+      <div class="modal-head"><h3>Confirmar Exclusão</h3><button class="btn-icon" id="del-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="modal-body"><p>Deseja realmente excluir este agendamento?</p></div>
+      <div class="modal-foot"><button type="button" class="btn btn-s" id="del-cancel">Cancelar</button><button type="button" class="btn btn-d" id="del-confirm">Excluir</button></div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-overlay" id="pay-overlay">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head"><h3 id="pay-modal-title">Pagamento</h3><button class="btn-icon" id="pay-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <form id="pay-form">
+        <div class="modal-body">
+          <div id="pay-info"></div>
+          <div class="form-grid" style="margin-top:14px">
+            <div class="form-group"><label>Valor do procedimento</label><input type="number" id="pay-amount" name="amount" step="0.01" required/></div>
+            <div class="form-group"><label>Desconto (R$)</label><input type="number" name="discount" step="0.01" value="0"/></div>
+            <div class="form-group"><label>Acréscimo (R$)</label><input type="number" name="surcharge" step="0.01" value="0"/></div>
+            <div class="form-group"><label>Valor final</label><input type="number" id="pay-final" name="final_amount" step="0.01" readonly style="font-weight:700;color:var(--p-400)"/></div>
+            <div class="form-group"><label>Forma de pagamento *</label>
+              <select name="payment_method" required><option>Dinheiro</option><option>PIX</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Outro</option></select>
+            </div>
+            <div class="form-group"><label>Status do pagamento</label>
+              <select name="payment_status"><option>Pago</option><option>Parcialmente pago</option><option>Pendente</option></select>
+            </div>
+            <div class="form-group full"><label>Observações</label><textarea name="pay_notes" placeholder="Notas do pagamento..."></textarea></div>
+          </div>
+          <div id="pay-history" style="margin-top:14px"></div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="pay-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Registrar Pagamento</button>
+        </div>
+      </form>
     </div>
   </div>
 
