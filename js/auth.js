@@ -113,6 +113,19 @@ const PERMISSIONS = {
   delete_payment:        ['admin'],
   manage_users:          ['admin'],
   settings:              ['admin'],
+  // Clinical records (Ficha Clínica)
+  view_clinical:         ['admin', 'dentista', 'recepcionista', 'auxiliar'],
+  create_clinical:       ['admin', 'dentista'],
+  edit_clinical:         ['admin', 'dentista'],
+  // Odontogram
+  view_odontogram:       ['admin', 'dentista', 'recepcionista', 'auxiliar'],
+  create_odontogram:     ['admin', 'dentista'],
+  edit_odontogram:       ['admin', 'dentista'],
+  // Treatment plans (Plano de Tratamento)
+  view_treatment_plan:   ['admin', 'dentista', 'recepcionista', 'auxiliar'],
+  create_treatment_plan: ['admin', 'dentista'],
+  edit_treatment_plan:   ['admin', 'dentista'],
+  delete_treatment_plan: ['admin'],
 };
 
 /**

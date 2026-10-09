@@ -435,8 +435,100 @@ tbody td{padding:11px 18px;font-size:.86rem;border-bottom:1px solid var(--border
 .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .legend-val{margin-left:auto;font-weight:600;color:var(--t1)}
 
+/* ---------- Odontogram ---------- */
+.odontogram-container{padding:8px 0}
+.odontogram-arch{display:flex;flex-direction:column;gap:18px}
+.odontogram-row{display:flex;align-items:center;gap:6px}
+.odontogram-row.lower{flex-direction:row}
+.odontogram-label{font-size:.68rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;min-width:32px;text-align:center}
+.tooth-group{display:flex;gap:3px;flex:1;justify-content:center;flex-wrap:wrap}
+.tooth-btn{
+  width:36px;height:36px;border-radius:var(--radius-sm);font-size:.72rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.04);border:1.5px solid var(--border);color:var(--t2);
+  cursor:pointer;transition:all var(--fast);position:relative
+}
+.tooth-btn:hover{border-color:var(--p-400);color:var(--t1);transform:scale(1.1);z-index:1}
+.tooth-btn.has-record{background:rgba(26,179,134,.1);border-color:rgba(26,179,134,.35);color:var(--p-400)}
+.tooth-btn.condition-cariado{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--danger)}
+.tooth-btn.condition-restaurado{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:var(--info)}
+.tooth-btn.condition-ausente{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.06);color:var(--t3);opacity:.5;text-decoration:line-through}
+.tooth-btn.condition-fraturado{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--warning)}
+.tooth-btn.condition-protese{background:rgba(108,99,255,.1);border-color:rgba(108,99,255,.3);color:var(--a-400)}
+.tooth-btn.selected{box-shadow:0 0 0 2px var(--p-400);border-color:var(--p-400);transform:scale(1.12);z-index:2}
+.odontogram-divider{width:1px;height:36px;background:var(--border);margin:0 4px;flex-shrink:0}
+.odontogram-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;padding:12px;background:var(--bg-input);border-radius:var(--radius-sm)}
+.odontogram-legend-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--t2)}
+.odontogram-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* Tooth detail popover */
+.tooth-detail{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-top:12px}
+.tooth-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.tooth-detail-header h4{font-size:.92rem;font-weight:700}
+.tooth-history-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.tooth-history-item:last-child{border-bottom:none}
+.tooth-history-date{font-size:.7rem;color:var(--t3);font-weight:600}
+.tooth-history-condition{font-weight:600;color:var(--t1);margin-top:2px}
+.tooth-history-proc{color:var(--t2);margin-top:1px}
+
+/* ---------- Health Question ---------- */
+.health-question{padding:12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px}
+.health-question-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.health-question-label{font-size:.85rem;font-weight:600;color:var(--t1);flex:1}
+.health-question-options{display:flex;gap:4px}
+.health-option{
+  padding:4px 12px;border-radius:var(--radius-full);font-size:.72rem;font-weight:600;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t2);
+  cursor:pointer;transition:all var(--fast)
+}
+.health-option:hover{background:rgba(255,255,255,.08);color:var(--t1)}
+.health-option.selected-sim{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3);color:var(--danger)}
+.health-option.selected-nao{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:var(--success)}
+.health-option.selected-ni{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--warning)}
+.health-desc-input{margin-top:8px}
+.health-desc-input input{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--t1);font-size:.82rem;outline:none;transition:border var(--fast)}
+.health-desc-input input:focus{border-color:var(--p-400)}
+
+/* ---------- Clinical Record View ---------- */
+.clinical-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.clinical-item{padding:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.clinical-item-label{font-size:.72rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.03em}
+.clinical-item-value{font-size:.85rem;font-weight:600;margin-top:3px}
+.clinical-item-value.sim{color:var(--danger)}
+.clinical-item-value.nao{color:var(--success)}
+.clinical-item-value.ni{color:var(--warning)}
+.clinical-item-desc{font-size:.78rem;color:var(--t2);margin-top:2px;font-style:italic}
+
+/* ---------- Treatment Plan ---------- */
+.tp-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+.tp-summary-card{padding:14px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-md);text-align:center}
+.tp-summary-label{font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.tp-summary-value{font-size:1.2rem;font-weight:800}
+.tp-item-row{display:grid;grid-template-columns:2fr 60px 1fr 80px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.tp-item-row:last-child{border-bottom:none}
+.tp-item-header{font-size:.7rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tp-totals{padding:14px;margin-top:14px;background:rgba(26,179,134,.04);border:1px solid rgba(26,179,134,.15);border-radius:var(--radius-md)}
+.tp-total-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.88rem}
+.tp-total-row.grand{font-weight:800;font-size:1.05rem;color:var(--p-400);padding-top:8px;border-top:1px solid rgba(26,179,134,.2);margin-top:6px}
+
+/* Modal large */
+.modal.modal-lg{max-width:800px}
+.modal.modal-xl{max-width:960px}
+
+/* Section divider */
+.section-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
+
+/* Clickable row cursor */
+.clickable-row{cursor:pointer}
+
 @media(max-width:768px){
   .stats-row{grid-template-columns:1fr 1fr}
   .dash-period .tabs{flex-wrap:nowrap}
   div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  .odontogram-row{flex-wrap:wrap;justify-content:center}
+  .tooth-btn{width:32px;height:32px;font-size:.65rem}
+  .clinical-summary{grid-template-columns:1fr}
+  .tp-summary{grid-template-columns:1fr}
+  .tp-item-row{grid-template-columns:1fr;gap:4px}
+  .modal.modal-lg,.modal.modal-xl{max-width:100%}
 }

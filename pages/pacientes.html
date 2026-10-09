@@ -62,7 +62,7 @@
     </main>
   </div>
 
-  <!-- Patient Modal -->
+  <!-- Patient Modal (existing) -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <div class="modal-head">
@@ -138,15 +138,18 @@
         Atendimento
       </button>
     </div>
-    <div class="dp-tabs">
+    <div class="dp-tabs" style="overflow-x:auto">
       <button class="dp-tab active" data-tab="info">Informações</button>
+      <button class="dp-tab" data-tab="clinical">Ficha Clínica</button>
+      <button class="dp-tab" data-tab="odontogram">Odontograma</button>
+      <button class="dp-tab" data-tab="treatment">Plano Trat.</button>
       <button class="dp-tab" data-tab="history">Histórico</button>
       <button class="dp-tab" data-tab="financial">Financeiro</button>
     </div>
     <div class="dp-content" id="dp-content"></div>
   </div>
 
-  <!-- Procedure Modal -->
+  <!-- Procedure Modal (existing) -->
   <div class="modal-overlay" id="proc-overlay">
     <div class="modal">
       <div class="modal-head">
@@ -203,9 +206,175 @@
     </div>
   </div>
 
+  <!-- Clinical Record Modal -->
+  <div class="modal-overlay" id="clinical-overlay">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <h3 id="clinical-modal-title">Nova Ficha Clínica</h3>
+        <button class="btn-icon" id="clinical-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="clinical-form">
+        <div class="modal-body">
+          <div class="form-grid" style="margin-bottom:18px">
+            <div class="form-group">
+              <label>Dentista Responsável *</label>
+              <select name="professional_id" required><option value="">Selecione...</option></select>
+            </div>
+            <div class="form-group">
+              <label>Atendimento (opcional)</label>
+              <select name="appointment_id"><option value="">Nenhum</option></select>
+            </div>
+          </div>
+          <h4 style="font-size:.88rem;font-weight:700;margin-bottom:12px;color:var(--p-400)">Dados de Saúde</h4>
+          <div id="health-questions-container"></div>
+          <div class="form-group full" style="margin-top:14px">
+            <label>Observações de saúde</label>
+            <textarea name="health_notes" placeholder="Informações adicionais sobre a saúde do paciente..."></textarea>
+          </div>
+          <hr class="section-divider"/>
+          <div class="form-group full">
+            <label>Observações gerais da ficha</label>
+            <textarea name="notes" placeholder="Notas gerais..."></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="clinical-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar Ficha Clínica</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Odontogram Entry Modal -->
+  <div class="modal-overlay" id="odonto-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="odonto-modal-title">Registrar no Odontograma</h3>
+        <button class="btn-icon" id="odonto-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="odonto-form">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Dente *</label>
+              <input type="number" name="tooth_number" min="11" max="48" required readonly style="font-weight:700;font-size:1.1rem"/>
+            </div>
+            <div class="form-group">
+              <label>Condição *</label>
+              <select name="tooth_condition" required>
+                <option value="">Selecione...</option>
+                <option>Hígido</option>
+                <option>Cariado</option>
+                <option>Restaurado</option>
+                <option>Ausente</option>
+                <option>Fraturado</option>
+                <option>Prótese</option>
+                <option>Implante</option>
+                <option>Endodontia</option>
+                <option>Extração indicada</option>
+                <option>Selante</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Procedimento realizado</label>
+              <input type="text" name="procedure_performed" placeholder="Ex: Restauração em resina..."/>
+            </div>
+            <div class="form-group">
+              <label>Dentista Responsável *</label>
+              <select name="professional_id" required><option value="">Selecione...</option></select>
+            </div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="date" name="record_date"/>
+            </div>
+            <div class="form-group full">
+              <label>Observação</label>
+              <textarea name="observation" placeholder="Detalhes sobre o dente..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="odonto-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Treatment Plan Item Modal -->
+  <div class="modal-overlay" id="tp-item-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="tp-item-modal-title">Adicionar Procedimento ao Plano</h3>
+        <button class="btn-icon" id="tp-item-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="tp-item-form">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Procedimento *</label>
+              <input type="text" name="procedure_name" placeholder="Ex: Restauração, Profilaxia..." required/>
+            </div>
+            <div class="form-group">
+              <label>Dente</label>
+              <select name="tooth_number">
+                <option value="">Não aplicável</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Dentista Responsável</label>
+              <select name="professional_id"><option value="">Selecione...</option></select>
+            </div>
+            <div class="form-group full">
+              <label>Descrição</label>
+              <input type="text" name="description" placeholder="Detalhes do procedimento..."/>
+            </div>
+            <div class="form-group">
+              <label>Valor unitário (R$) *</label>
+              <input type="number" name="unit_value" step="0.01" placeholder="0,00" required/>
+            </div>
+            <div class="form-group">
+              <label>Quantidade</label>
+              <input type="number" name="quantity" min="1" value="1"/>
+            </div>
+            <div class="form-group">
+              <label>Data prevista</label>
+              <input type="date" name="planned_date"/>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select name="status">
+                <option>Planejado</option>
+                <option>Aprovado</option>
+                <option>Em andamento</option>
+                <option>Concluído</option>
+                <option>Cancelado</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Observações</label>
+              <textarea name="observation" placeholder="Notas..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-s" id="tp-item-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-p">Salvar Procedimento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="toast-wrap" id="toast-wrap"></div>
 
   <script type="module" src="../js/pacientes.js"></script>
 
 </body>
 </html>
+
